@@ -6,7 +6,7 @@ What you’ll set up:
 - SvelteKit dev server
 - Postgres connection and migrations (Drizzle)
 - Better Auth with Google and/or Microsoft sign-in
-- Admin/claims to unlock features (Events, Campaigns, Calendar Syncs)
+- Admin/claims to unlock features (Events, Campaigns, Synchronizations)
 
 ## Prerequisites
 
@@ -84,7 +84,7 @@ Where these live: Better Auth persists the user (and the extra fields below) in 
 
 Accepted formats by the app:
 - Roles: `['admin']` OR `'["admin"]'`
-- Claims: `{ "events": true, "campaigns": true, "calendarSyncs": false }` OR the same object as a string
+- Claims: `{ "events": true, "campaigns": true, "synchronizations": false }` OR the same object as a string
 
 Typical ways to set them:
 - Using your DB client (or Drizzle Studio), update your user row’s `roles` and `claims` columns.
@@ -98,7 +98,7 @@ WHERE email = 'you@example.com';
 
 -- Or set per-feature claims (no admin)
 UPDATE "user"
-SET claims = '{"events":true,"campaigns":true,"calendarSyncs":false}'
+SET claims = '{"events":true,"campaigns":true,"synchronizations":false}'
 WHERE email = 'you@example.com';
 ```
 
@@ -114,7 +114,7 @@ Core file: `src/lib/authorization.ts`
 
 Usage in endpoints/remotes:
 - First, get the session user: `getAuthenticatedUser()` (e.g. `src/routes/events/auth.ts` or `src/routes/campaigns/auth.ts`)
-- Then gate the operation: `ensureAccess(user, 'events')` (or `'campaigns'`, `'calendarSyncs'`)
+- Then gate the operation: `ensureAccess(user, 'events')` (or `'campaigns'`, `'synchronizations'`)
 
 ## The Features system (metadata-driven UI)
 

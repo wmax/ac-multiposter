@@ -5,8 +5,7 @@ import { event } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { listEvents } from '../list.remote';
 import { getEvent } from './view.remote';
-import { getAuthenticatedUser } from '../auth';
-import { ensureAccess } from '$lib/authorization';
+import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
 
 /**
  * Schema for updating an event
@@ -51,7 +50,7 @@ const updateEventSchema = z.object({
  * Command: Update an event
  */
 export const updateEvent = command(updateEventSchema, async (data) => {
-	const user = await getAuthenticatedUser();
+	const user = getAuthenticatedUser();
 	ensureAccess(user, 'events');
 
 	// Build update object with only provided fields

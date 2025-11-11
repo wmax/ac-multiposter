@@ -150,7 +150,7 @@
 	{#if !event}
 		<div class="container mx-auto px-4 py-8">
 			<p>Event not found</p>
-			<a href="/events" class="text-blue-500 hover:underline">Back to Events</a>
+			<button onclick={() => goto('/events')} class="text-blue-500 hover:underline">Back to Events</button>
 		</div>
 	{:else}
 		<div class="container mx-auto px-4 py-8 max-w-4xl">
@@ -158,13 +158,13 @@
 			<nav class="mb-4 text-sm">
 				<ol class="flex items-center space-x-2 text-gray-600">
 					<li>
-						<a href="/" class="hover:text-blue-600 hover:underline">Home</a>
+						<button onclick={() => goto('/')} class="hover:text-blue-600 hover:underline">Home</button>
 					</li>
 					<li>
 						<span class="text-gray-400">/</span>
 					</li>
 					<li>
-						<a href="/events" class="hover:text-blue-600 hover:underline">Events</a>
+						<button onclick={() => goto('/events')} class="hover:text-blue-600 hover:underline">Events</button>
 					</li>
 					<li>
 						<span class="text-gray-400">/</span>
@@ -202,8 +202,9 @@
 					onSubmit={async (data) => {
 						await updateEvent({ id: eventId, ...data });
 						isEditing = false;
+						goto(`/events/${eventId}`);
 					}}
-					onCancel={() => (isEditing = false)}
+					onCancel={() => goto(`/events/${eventId}`)}
 				/>
 			{:else}
 				<!-- View Mode -->

@@ -78,3 +78,6 @@ export const campaign = pgTable("campaign", {
 
 // Re-export event schema
 export { event } from "./events-schema";
+
+// Re-export sync schemas
+export { syncConfig, syncOperation, syncMapping, webhookSubscription } from "./sync-schema";

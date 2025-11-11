@@ -36,14 +36,12 @@
 	{:else if user}
 		<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
 			
-			<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-				<h3 class="font-semibold text-blue-900 mb-2">Welcome to AC Multiposter!</h3>
-				<p class="text-blue-800 text-sm">
-					You're successfully signed in. This is your dashboard where you can manage your calendar syncs and events.
-				</p>
-			</div>
-
-			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-stretch">
+		<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+			<h3 class="font-semibold text-blue-900 mb-2">Welcome to AC Multiposter!</h3>
+			<p class="text-blue-800 text-sm">
+				You're successfully signed in. This is your dashboard where you can manage your synchronizations and events.
+			</p>
+		</div>			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-stretch">
 				{#each getVisibleFeatures(user, hasAccess) as f (f.key)}
 					<DashboardCard
 						title={f.title}

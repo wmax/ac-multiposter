@@ -4,14 +4,13 @@ import { db } from '$lib/server/db';
 import { event } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { Event } from '../list.remote';
-import { getAuthenticatedUser } from '../auth';
-import { ensureAccess } from '$lib/authorization';
+import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
 
 /**
  * Query: Get a single event by ID
  */
 export const getEvent = query(z.string(), async (eventId) => {
-	const user = await getAuthenticatedUser();
+	const user = getAuthenticatedUser();
 	ensureAccess(user, 'events');
 
 	const events = await db

@@ -6,8 +6,7 @@ import { eq, and } from 'drizzle-orm';
 import type { Campaign } from '../list.remote';
 import { getCampaign } from './view.remote';
 import { listCampaigns } from '../list.remote';
-import { getAuthenticatedUser } from '../auth';
-import { ensureAccess } from '$lib/authorization';
+import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
 
 /**
  * Command: Update an existing campaign
@@ -19,7 +18,7 @@ const updateCampaignSchema = z.object({
 });
 
 export const updateCampaign = command(updateCampaignSchema, async (data) => {
-	const user = await getAuthenticatedUser();
+	const user = getAuthenticatedUser();
 	ensureAccess(user, 'campaigns');
 	
 	// Get current campaign

@@ -4,8 +4,7 @@ import { z } from 'zod/mini';
 import { db } from '$lib/server/db';
 import { event } from '$lib/server/db/schema';
 import { listEvents } from '../list.remote';
-import { getAuthenticatedUser } from '../auth';
-import { ensureAccess } from '$lib/authorization';
+import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
 
 /**
  * Schema for creating a new event
@@ -48,7 +47,7 @@ const createEventSchema = z.object({
  * Command function for creating a new event
  */
 export const createEvent = command(createEventSchema, async (data) => {
-	const user = await getAuthenticatedUser();
+	const user = getAuthenticatedUser();
 	ensureAccess(user, 'events');
 
 	// Generate a unique ID for the event

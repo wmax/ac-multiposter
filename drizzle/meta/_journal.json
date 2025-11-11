@@ -43,6 +43,13 @@
       "when": 1762878083716,
       "tag": "0005_rich_shooting_star",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1762888307831,
+      "tag": "0006_many_maria_hill",
+      "breakpoints": true
     }
   ]
 }

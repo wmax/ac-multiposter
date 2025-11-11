@@ -18,12 +18,12 @@ export interface FeatureMeta {
 
 export const FEATURES: readonly FeatureMeta[] = [
   {
-    key: 'calendarSyncs',
-    title: 'Calendar Syncs',
+    key: 'synchronizations',
+    title: 'Synchronizations',
     description: 'Connect and sync your Google Calendar and Microsoft 365 calendars.',
-    href: '/calendar-syncs',
+    href: '/synchronizations',
     buttonText: 'Manage Syncs',
-    claim: 'calendarSyncs',
+    claim: 'synchronizations',
     icon: 'calendar',
     gradientFrom: 'from-blue-50',
     gradientTo: 'to-indigo-50',

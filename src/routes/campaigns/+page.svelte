@@ -2,135 +2,103 @@
 	import { listCampaigns } from './list.remote';
 	import { deleteCampaigns } from './[id]/delete.remote';
 	import type { Campaign } from './list.remote';
+	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
+	import ListCard from '$lib/components/ui/ListCard.svelte';
+	import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
+	import { createMultiSelect } from '$lib/hooks/multiSelect.svelte';
 
-	// Form state
-	let selectedIds: Set<string> = $state(new Set());
+	// Multi-select state
+	const selection = createMultiSelect<Campaign>();
 
-	async function handleDelete() {
-		if (selectedIds.size === 0) return;
-		if (!confirm(`Delete ${selectedIds.size} campaign(s)?`)) return;
+	async function handleBulkDelete() {
+		if (selection.count === 0) return;
+		if (!confirm(`Delete ${selection.count} campaign(s)?`)) return;
 
 		try {
-			await deleteCampaigns(Array.from(selectedIds)).updates(listCampaigns());
-			selectedIds = new Set(); // Clear and trigger reactivity
+			await deleteCampaigns(selection.getSelectedArray()).updates(listCampaigns());
+			selection.deselectAll();
 		} catch (error) {
 			alert('Failed to delete campaigns');
-		}
-	}
-
-	function toggleSelection(id: string) {
-		if (selectedIds.has(id)) {
-			selectedIds = new Set([...selectedIds].filter(sid => sid !== id));
-		} else {
-			selectedIds = new Set([...selectedIds, id]);
-		}
-	}
-
-	async function toggleSelectAll() {
-		const campaigns = await listCampaigns();
-		if (selectedIds.size === campaigns.length) {
-			selectedIds = new Set();
-		} else {
-			selectedIds = new Set(campaigns.map((c) => c.id));
 		}
 	}
 </script>
 
 <div class="container mx-auto px-4 py-8">
-	<!-- Breadcrumb Navigation -->
-	<nav class="mb-4 text-sm">
-		<ol class="flex items-center space-x-2 text-gray-600">
-			<li>
-				<a href="/" class="hover:text-blue-600 hover:underline">Home</a>
-			</li>
-			<li>
-				<span class="text-gray-400">/</span>
-			</li>
-			<li class="text-gray-900 font-medium">Campaigns</li>
-		</ol>
-	</nav>
+	<Breadcrumb feature="campaigns" />
 
 	<div class="flex justify-between items-center mb-6">
 		<h1 class="text-3xl font-bold">Campaigns</h1>
-		<div class="flex gap-2">
-			{#if selectedIds.size > 0}
-				<button
-					onclick={toggleSelectAll}
-					class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-				>
-					{#await listCampaigns() then campaigns}
-						{selectedIds.size === campaigns.length ? 'Deselect All' : 'Select All'}
-					{/await}
-				</button>
-				<button
-					onclick={handleDelete}
-					class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-				>
-					Delete Selected ({selectedIds.size})
-				</button>
-			{/if}
-			<a
-				href="/campaigns/new"
-				class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-			>
-				+ New Campaign
-			</a>
-		</div>
+		{#await listCampaigns() then campaigns}
+			<BulkActionToolbar
+				selectedCount={selection.count}
+				totalCount={campaigns.length}
+				onSelectAll={() => selection.selectAll(campaigns)}
+				onDeselectAll={() => selection.deselectAll()}
+				onDelete={handleBulkDelete}
+				newItemHref="/campaigns/new"
+				newItemLabel="+ New Campaign"
+			/>
+		{/await}
 	</div>
 
 	<div class="grid gap-4">
-		{#each await listCampaigns() as campaign (campaign.id)}
-			<div class="bg-white shadow rounded-lg p-6 flex items-start gap-4">
-				<input
-					type="checkbox"
-					checked={selectedIds.has(campaign.id)}
-					onchange={() => toggleSelection(campaign.id)}
-					class="mt-1 w-4 h-4 text-blue-600"
-				/>
-				<div class="flex-1">
-					<h2 class="text-xl font-semibold mb-2">{campaign.name}</h2>
-					<pre class="bg-gray-50 p-4 rounded text-sm overflow-auto">{JSON.stringify(
-							campaign.content,
-							null,
-							2
-						)}</pre>
-					<p class="text-sm text-gray-500 mt-2">
-						Created: {new Date(campaign.createdAt).toLocaleString()}
-					</p>
-				</div>
-				<div class="flex flex-col gap-2">
+		{#await listCampaigns()}
+			<div class="text-center py-12 text-gray-500">Loading campaigns...</div>
+		{:then campaigns}
+			{#if campaigns.length === 0}
+				<div class="text-center py-12 text-gray-500">
+					<p class="text-lg mb-4">No campaigns yet</p>
 					<a
-						href="/campaigns/{campaign.id}"
-						class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-center"
+						href="/campaigns/new"
+						class="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
 					>
-						View
+						Create your first campaign
 					</a>
-					<button
-						onclick={async () => {
-							if (confirm(`Delete campaign "${campaign.name}"?`)) {
-								try {
-									await deleteCampaigns([campaign.id]).updates(listCampaigns());
-								} catch (error) {
-									alert('Failed to delete campaign');
-								}
-							}
-						}}
-						class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-					>
-						Delete
-					</button>
 				</div>
+			{:else}
+				{#each campaigns as campaign (campaign.id)}
+					<ListCard
+						id={campaign.id}
+						href="/campaigns/{campaign.id}"
+						selected={selection.isSelected(campaign.id)}
+						onToggle={selection.toggleSelection}
+						editHref="/campaigns/{campaign.id}?edit=1"
+						onDelete={async (id) => {
+							await deleteCampaigns([id]).updates(listCampaigns());
+						}}
+						deleteLabel="Delete"
+					>
+						{#snippet title()}
+							<a 
+								href="/campaigns/{campaign.id}" 
+								class="hover:underline text-blue-600"
+								onclick={(e) => e.stopPropagation()}
+							>
+								{campaign.name}
+							</a>
+						{/snippet}
+
+						{#snippet content()}
+							<pre class="bg-gray-50 p-4 rounded text-sm overflow-auto">{JSON.stringify(
+									campaign.content,
+									null,
+									2
+								)}</pre>
+						{/snippet}
+
+						{#snippet metadata()}
+							<p class="text-xs text-gray-500 mt-3">
+								Created: {new Date(campaign.createdAt).toLocaleString()}
+							</p>
+						{/snippet}
+					</ListCard>
+				{/each}
+			{/if}
+		{:catch error}
+			<div class="text-center py-12">
+				<p class="text-red-600 mb-3">{error?.message || 'Failed to load campaigns'}</p>
+				<a href="/api/auth/signin" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Sign in</a>
 			</div>
-		{:else}
-			<div class="text-center py-12 text-gray-500">
-				<p class="text-lg mb-4">No campaigns yet</p>
-				<a
-					href="/campaigns/new"
-					class="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-				>
-					Create your first campaign
-				</a>
-			</div>
-		{/each}
+		{/await}
 	</div>
 </div>

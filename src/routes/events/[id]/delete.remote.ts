@@ -4,8 +4,7 @@ import { db } from '$lib/server/db';
 import { event } from '$lib/server/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { listEvents } from '../list.remote';
-import { getAuthenticatedUser } from '../auth';
-import { ensureAccess } from '$lib/authorization';
+import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
 
 /**
  * Command: Delete one or more events
@@ -14,7 +13,7 @@ import { ensureAccess } from '$lib/authorization';
 export const deleteEvents = command(
 	z.array(z.string()).check(z.minLength(1)),
 	async (eventIds) => {
-		const user = await getAuthenticatedUser();
+		const user = getAuthenticatedUser();
 		ensureAccess(user, 'events');
 
 		// Delete the events

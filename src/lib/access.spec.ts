@@ -1,7 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { hasAccess, parseClaims, parseRoles } from './authorization';
 
-const user = (roles: any, claims: any) => ({ roles, claims });
+const user = (roles: any, claims: any) => ({ 
+  id: 'test-user-id',
+  email: 'test@example.com',
+  name: 'Test User',
+  emailVerified: true,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  roles, 
+  claims 
+});
 
 describe('access utils', () => {
   describe('parseRoles', () => {

@@ -12,6 +12,20 @@
 	let isEditMode = $state(false);
 	let editName = $state('');
 	let editContent = $state('{}');
+	let campaignData = $state<Campaign | null>(null);
+
+	// Load campaign data
+	$effect(() => {
+		getCampaign(campaignId).then(data => {
+			campaignData = data;
+			// If entering edit mode via query param, populate fields
+			if ($page.url.searchParams.get('edit') === '1' && data) {
+				isEditMode = true;
+				editName = data.name;
+				editContent = JSON.stringify(data.content, null, 2);
+			}
+		});
+	});
 
 	function startEdit(campaign: Campaign) {
 		isEditMode = true;
@@ -53,13 +67,13 @@
 	<nav class="mb-4 text-sm">
 		<ol class="flex items-center space-x-2 text-gray-600">
 			<li>
-				<a href="/" class="hover:text-blue-600 hover:underline">Home</a>
+				<button onclick={() => goto('/')} class="hover:text-blue-600 hover:underline">Home</button>
 			</li>
 			<li>
 				<span class="text-gray-400">/</span>
 			</li>
 			<li>
-				<a href="/campaigns" class="hover:text-blue-600 hover:underline">Campaigns</a>
+				<button onclick={() => goto('/campaigns')} class="hover:text-blue-600 hover:underline">Campaigns</button>
 			</li>
 			<li>
 				<span class="text-gray-400">/</span>
@@ -170,24 +184,24 @@
 			<div class="text-center py-12">
 				<h1 class="text-2xl font-bold text-gray-900 mb-4">Campaign Not Found</h1>
 				<p class="text-gray-600 mb-6">The campaign you're looking for doesn't exist.</p>
-				<a
-					href="/campaigns"
+				<button
+					onclick={() => goto('/campaigns')}
 					class="inline-block px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
 				>
 					Back to Campaigns
-				</a>
+				</button>
 			</div>
 		{/if}
 	{:catch error}
 		<div class="text-center py-12">
 			<h1 class="text-2xl font-bold text-red-600 mb-4">Error</h1>
 			<p class="text-gray-600 mb-6">{error instanceof Error ? error.message : 'Failed to load campaign'}</p>
-			<a
-				href="/campaigns"
+			<button
+				onclick={() => goto('/campaigns')}
 				class="inline-block px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
 			>
 				Back to Campaigns
-			</a>
+			</button>
 		</div>
 	{/await}
 </div>

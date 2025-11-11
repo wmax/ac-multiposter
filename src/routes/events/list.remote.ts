@@ -2,8 +2,7 @@ import { query } from '$app/server';
 import { db } from '$lib/server/db';
 import { event } from '$lib/server/db/schema';
 import { eq, desc } from 'drizzle-orm';
-import { getAuthenticatedUser } from './auth';
-import { ensureAccess } from '$lib/authorization';
+import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
 
 /**
  * Event interface matching the database schema
@@ -106,7 +105,7 @@ export interface Event {
  * List all events for the authenticated user
  */
 export const listEvents = query(async () => {
-	const user = await getAuthenticatedUser();
+	const user = getAuthenticatedUser();
 	ensureAccess(user, 'events');
 
 	const events = await db

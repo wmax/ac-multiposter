@@ -4,8 +4,7 @@ import { db } from '$lib/server/db';
 import { campaign } from '$lib/server/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { listCampaigns } from '../list.remote';
-import { getAuthenticatedUser } from '../auth';
-import { ensureAccess } from '$lib/authorization';
+import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
 
 /**
  * Command: Delete one or more campaigns
@@ -13,7 +12,7 @@ import { ensureAccess } from '$lib/authorization';
 const deleteCampaignsSchema = z.array(z.string()).check(z.minLength(1, 'Must provide at least one campaign ID'));
 
 export const deleteCampaigns = command(deleteCampaignsSchema, async (campaignIds: string[]) => {
-	const user = await getAuthenticatedUser();
+	const user = getAuthenticatedUser();
 	ensureAccess(user, 'campaigns');
 	
 	if (campaignIds.length === 0) {
