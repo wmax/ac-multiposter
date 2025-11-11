@@ -36,6 +36,13 @@
       "when": 1762869227380,
       "tag": "0004_superb_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1762878083716,
+      "tag": "0005_rich_shooting_star",
+      "breakpoints": true
     }
   ]
 }

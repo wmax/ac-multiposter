@@ -1,38 +1,167 @@
-# sv
+# AC Multiposter – Developer Quickstart
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+This is a SvelteKit app that manages Campaigns and Calendar Events with RBAC using Better Auth and a Postgres database via Drizzle ORM.
 
-## Creating a project
+What you’ll set up:
+- SvelteKit dev server
+- Postgres connection and migrations (Drizzle)
+- Better Auth with Google and/or Microsoft sign-in
+- Admin/claims to unlock features (Events, Campaigns, Calendar Syncs)
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Prerequisites
 
-```sh
-# create a new project in the current directory
-npx sv create
+- Node.js 20+ (LTS) or 22+
+- PNPM or NPM (examples below use PNPM)
+- A Postgres database (local or remote)
+- OAuth credentials (at least one):
+	- Google OAuth Client ID/Secret
+	- Microsoft Entra ID (Azure) App with Client ID/Secret
 
-# create a new project in my-app
-npx sv create my-app
+## 1) Install dependencies
+
+```powershell
+pnpm install
 ```
 
-## Developing
+## 2) Configure environment
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Create a `.env.local` file in the project root with at least:
 
-```sh
-npm run dev
+```env
+DATABASE_URL=postgres://USER:PASS@localhost:5432/ac_multiposter
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+# URL your app will run on locally
+BETTER_AUTH_URL=http://localhost:5173
+
+# OAuth providers (pick at least one and fill in values)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+MICROSOFT_CLIENT_ID=your-microsoft-client-id
+MICROSOFT_CLIENT_SECRET=your-microsoft-client-secret
 ```
 
-## Building
+Notes:
+- `DATABASE_URL` is required. The app will throw if it’s missing.
+- `BETTER_AUTH_URL` should match where you run the app locally (default Vite dev URL).
+- OAuth callback URLs to configure with your providers:
+	- Google: `http://localhost:5173/api/auth/callback/google`
+	- Microsoft: `http://localhost:5173/api/auth/callback/microsoft`
+	- Microsoft scope used: `Calendars.ReadWrite` and `offline_access`
 
-To create a production version of your app:
+## 3) Initialize the database
 
-```sh
-npm run build
+Run migrations to create tables and bring the DB up to date:
+
+```powershell
+pnpm db:migrate
+# or (if you prefer schema sync)
+pnpm db:push
 ```
 
-You can preview the production build with `npm run preview`.
+Optional (visualize your schema):
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+```powershell
+pnpm db:studio
+```
+
+## 4) Start the app
+
+```powershell
+pnpm dev
+```
+
+Visit http://localhost:5173 and use the “Sign In” menu in the header to authenticate with Google or Microsoft.
+
+## 5) Grant yourself access (roles/claims)
+
+Access is controlled by roles and claims on the user record managed by Better Auth.
+
+Where these live: Better Auth persists the user (and the extra fields below) in your Postgres DB via Drizzle. After your first sign-in, locate your user in the auth tables and set:
+
+- roles: an array or a JSON string of roles. If it contains `admin`, you have access to all features.
+- claims: a JSON object (or JSON string) of booleans per feature key.
+
+Accepted formats by the app:
+- Roles: `['admin']` OR `'["admin"]'`
+- Claims: `{ "events": true, "campaigns": true, "calendarSyncs": false }` OR the same object as a string
+
+Typical ways to set them:
+- Using your DB client (or Drizzle Studio), update your user row’s `roles` and `claims` columns.
+- Examples (adjust table/column names to your DB, as Better Auth may name the table `user`):
+
+```sql
+-- Grant admin (full access)
+UPDATE "user"
+SET roles = '["admin"]'
+WHERE email = 'you@example.com';
+
+-- Or set per-feature claims (no admin)
+UPDATE "user"
+SET claims = '{"events":true,"campaigns":true,"calendarSyncs":false}'
+WHERE email = 'you@example.com';
+```
+
+After setting roles/claims, refresh the app. The homepage cards will appear according to your access.
+
+## How authorization works (quick tour)
+
+Core file: `src/lib/authorization.ts`
+- `parseRoles(user)`: returns a string[] whether roles is stored as an array or JSON string
+- `parseClaims(user)`: returns an object (or null) whether claims is stored as an object or JSON string
+- `hasAccess(user, feature)`: true if `roles` contains `admin` OR if `claims[feature]` is true
+- `ensureAccess(user, feature)`: throws `Unauthorized` if `hasAccess` is false
+
+Usage in endpoints/remotes:
+- First, get the session user: `getAuthenticatedUser()` (e.g. `src/routes/events/auth.ts` or `src/routes/campaigns/auth.ts`)
+- Then gate the operation: `ensureAccess(user, 'events')` (or `'campaigns'`, `'calendarSyncs'`)
+
+## The Features system (metadata-driven UI)
+
+Core file: `src/lib/features.ts`
+- `FEATURES`: metadata list of features powering the homepage cards
+- Each item has `key`, `title`, `description`, `href`, `buttonText`, and styling/icon metadata
+- The `key` must match the `Feature` union in `authorization.ts` and the per-feature claim key
+- `getVisibleFeatures(user, hasAccess)`: filters and sorts the list for the logged-in user
+
+UI wiring:
+- The homepage (`src/routes/+page.svelte`) renders cards by iterating the filtered features list
+- Icons live in `src/lib/icons.ts`
+- Card component: `src/lib/components/ui/DashboardCard.svelte`
+
+Adding a new feature:
+1. Add a new key to `Feature` in `src/lib/authorization.ts`
+2. Add a new entry to `FEATURES` in `src/lib/features.ts` with the same `key`
+3. Build your routes/logic under `/src/routes/<your-feature>`
+4. Grant claims or admin to see it on the homepage
+
+## Testing
+
+- Run server-side unit tests only (fast path):
+
+```powershell
+pnpm test:unit -- --run --project server
+```
+
+- If you want to run browser tests too, first install browsers:
+
+```powershell
+npx playwright install
+pnpm test
+```
+
+## Troubleshooting
+
+- 500 Unauthorized from an endpoint
+	- Ensure you’re signed in (session cookies present)
+	- Check `DATABASE_URL` is set and reachable
+	- Verify your user’s `roles` or `claims` in the DB
+	- Ensure OAuth callback URLs match `BETTER_AUTH_URL` and provider settings
+
+- Events/Campaigns features not visible
+	- You may be signed in, but your user lacks the claims
+	- Set `roles` to `['admin']` (full access) or toggle specific claims in the DB
+
+- Social sign-in doesn’t redirect correctly
+	- Ensure your provider app’s redirect URIs are set to `http://localhost:5173/api/auth/callback/<provider>`
+	- Confirm `BETTER_AUTH_URL` is `http://localhost:5173` during local development

@@ -4,14 +4,15 @@ import { db } from '$lib/server/db';
 import { campaign } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { Campaign } from '../list.remote';
-import { getAuthenticatedUser, ensureCampaignsAccess } from '../auth';
+import { getAuthenticatedUser } from '../auth';
+import { ensureAccess } from '$lib/authorization';
 
 /**
  * Query: Get a single campaign by ID
  */
 export const getCampaign = query(z.string(), async (campaignId: string): Promise<Campaign | null> => {
 	const user = await getAuthenticatedUser();
-	ensureCampaignsAccess(user);
+	ensureAccess(user, 'campaigns');
 	
 	const result = await db
 		.select()

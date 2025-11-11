@@ -1,39 +1,25 @@
 <script lang="ts">
 	import { authClient } from '$lib/auth-client';
 	import { onMount } from 'svelte';
+	import DashboardCard from '$lib/components/ui/DashboardCard.svelte';
+	import { hasAccess, parseRoles, parseClaims } from '$lib/authorization';
+	import { FEATURES, getVisibleFeatures } from '$lib/features';
 
 	let user = $state<any>(null);
 	let loading = $state(true);
 	let userClaims = $state<any>(null);
 	let userRoles = $state<string[]>([]);
 
+	const isAdmin = () => userRoles.includes('admin');
+
 	onMount(async () => {
 		try {
 			const session = await authClient.getSession();
 			user = session?.data?.user;
-			console.log('User object:', user);
-			console.log('user.roles:', user?.roles);
-			console.log('user.claims:', user?.claims);
-			
+            
 			// Parse roles
-			if (user?.roles) {
-				try {
-					userRoles = typeof user.roles === 'string' ? JSON.parse(user.roles) : user.roles;
-					console.log('Parsed roles:', userRoles);
-				} catch (e) {
-					console.error('Failed to parse roles:', e);
-				}
-			}
-			
-			// Parse claims
-			if (user?.claims) {
-				try {
-					userClaims = typeof user.claims === 'string' ? JSON.parse(user.claims) : user.claims;
-					console.log('Parsed claims:', userClaims);
-				} catch (e) {
-					console.error('Failed to parse claims:', e);
-				}
-			}
+			userRoles = parseRoles(user);
+			userClaims = parseClaims(user);
 		} catch (error) {
 			console.error('Failed to load session:', error);
 		} finally {
@@ -58,57 +44,21 @@
 			</div>
 
 			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-stretch">
-				<div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-100 flex flex-col justify-between h-full">
-					<div>
-						<div class="flex items-center gap-2 mb-3">
-							<svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-							</svg>
-							<h3 class="font-semibold text-gray-900">Calendar Syncs</h3>
-						</div>
-						<p class="text-sm text-gray-600 mb-4">Connect and sync your Google Calendar and Microsoft 365 calendars.</p>
-					</div>
-					<div>
-						<a href="/calendar-syncs" class="inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
-							Manage Syncs
-						</a>
-					</div>
-				</div>
-
-				<div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-6 border border-purple-100 flex flex-col justify-between h-full">
-					<div>
-						<div class="flex items-center gap-2 mb-3">
-							<svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-							</svg>
-							<h3 class="font-semibold text-gray-900">Events</h3>
-						</div>
-						<p class="text-sm text-gray-600 mb-4">Create, edit, and manage your events across multiple calendars.</p>
-					</div>
-					<div>
-						<a href="/events" class="inline-block px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm font-medium">
-							View Events
-						</a>
-					</div>
-				</div>
-				{#if userRoles.includes('admin') || userClaims?.campaigns}
-					<div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6 border border-emerald-100 flex flex-col justify-between h-full">
-						<div>
-							<div class="flex items-center gap-2 mb-3">
-								<svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7 7h10v10H7z" />
-								</svg>
-								<h3 class="font-semibold text-gray-900">Campaigns</h3>
-							</div>
-							<p class="text-sm text-gray-600 mb-4">Create and manage message campaigns to post across your connected calendars.</p>
-						</div>
-						<div>
-							<a href="/campaigns" class="inline-block px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors text-sm font-medium">
-								Manage Campaigns
-							</a>
-						</div>
-					</div>
-				{/if}
+				{#each getVisibleFeatures(user, hasAccess) as f (f.key)}
+					<DashboardCard
+						title={f.title}
+						description={f.description}
+						href={f.href}
+						buttonText={f.buttonText}
+						visible={true}
+						gradientFrom={f.gradientFrom}
+						gradientTo={f.gradientTo}
+						borderClass={f.borderClass}
+						buttonClass={f.buttonClass}
+						icon={f.icon}
+						iconClass={f.icon === 'calendar' ? 'text-blue-600' : f.icon === 'plus' ? 'text-purple-600' : 'text-emerald-600'}
+					/>
+				{/each}
 			</div>
 		</div>
 	{:else}

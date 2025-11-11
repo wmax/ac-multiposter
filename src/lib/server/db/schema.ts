@@ -75,3 +75,6 @@ export const campaign = pgTable("campaign", {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
+
+// Re-export event schema
+export { event } from "./events-schema";

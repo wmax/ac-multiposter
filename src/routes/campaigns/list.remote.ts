@@ -2,7 +2,8 @@ import { query } from '$app/server';
 import { db } from '$lib/server/db';
 import { campaign } from '$lib/server/db/schema';
 import { eq, desc } from 'drizzle-orm';
-import { getAuthenticatedUser, ensureCampaignsAccess } from './auth';
+import { getAuthenticatedUser } from './auth';
+import { ensureAccess } from '$lib/authorization';
 
 export interface Campaign {
 	id: string;
@@ -18,7 +19,7 @@ export interface Campaign {
  */
 export const listCampaigns = query(async (): Promise<Campaign[]> => {
 	const user = await getAuthenticatedUser();
-	ensureCampaignsAccess(user);
+	ensureAccess(user, 'campaigns');
 	
 	const results = await db
 		.select()

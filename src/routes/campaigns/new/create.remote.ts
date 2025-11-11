@@ -4,7 +4,8 @@ import { db } from '$lib/server/db';
 import { campaign } from '$lib/server/db/schema';
 import type { Campaign } from '../list.remote';
 import { listCampaigns } from '../list.remote';
-import { getAuthenticatedUser, ensureCampaignsAccess } from '../auth';
+import { getAuthenticatedUser } from '../auth';
+import { ensureAccess } from '$lib/authorization';
 
 /**
  * Form: Create a new campaign
@@ -16,7 +17,7 @@ const createCampaignSchema = z.object({
 
 export const createCampaign = form(createCampaignSchema, async (data) => {
 	const user = await getAuthenticatedUser();
-	ensureCampaignsAccess(user);
+	ensureAccess(user, 'campaigns');
 	
 	const result = await db
 		.insert(campaign)

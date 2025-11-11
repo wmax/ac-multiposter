@@ -2,7 +2,6 @@
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import AuthHeader from '$lib/components/AuthHeader.svelte';
-	import DebugAuthInfo from '$lib/components/DebugAuthInfo.svelte';
 	
 	let { children } = $props();
 </script>
@@ -19,7 +18,6 @@
 	</div>
 </main>
 
-<DebugAuthInfo />
 
 <style>
 	:global(body) {
