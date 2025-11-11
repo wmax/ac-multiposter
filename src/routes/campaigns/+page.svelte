@@ -1,26 +1,10 @@
 <script lang="ts">
-	import { listCampaigns, createCampaign, updateCampaign, deleteCampaigns } from './campaigns.remote';
-	import type { Campaign } from './campaigns.remote';
+	import { listCampaigns } from './list.remote';
+	import { deleteCampaigns } from './[id]/delete.remote';
+	import type { Campaign } from './list.remote';
 
 	// Form state
-	let showCreateForm = $state(false);
-	let editingCampaign: Campaign | null = $state(null);
-	let editName = $state('');
-	let editContent = $state('{}');
 	let selectedIds: Set<string> = $state(new Set());
-
-	// Create form reference  
-	const createForm = createCampaign;
-
-	function openEditForm(campaign: Campaign) {
-		editingCampaign = campaign;
-		editName = campaign.name;
-		editContent = JSON.stringify(campaign.content, null, 2);
-	}
-
-	function closeEditForm() {
-		editingCampaign = null;
-	}
 
 	async function handleDelete() {
 		if (selectedIds.size === 0) return;
@@ -31,20 +15,6 @@
 			selectedIds = new Set(); // Clear and trigger reactivity
 		} catch (error) {
 			alert('Failed to delete campaigns');
-		}
-	}
-
-	async function handleUpdate() {
-		if (!editingCampaign) return;
-		
-		try {
-			const content = JSON.parse(editContent);
-			await updateCampaign({ id: editingCampaign.id, name: editName, content }).updates(
-				listCampaigns()
-			);
-			closeEditForm();
-		} catch (error) {
-			alert('Failed to update campaign');
 		}
 	}
 
@@ -99,12 +69,12 @@
 					Delete Selected ({selectedIds.size})
 				</button>
 			{/if}
-			<button
-				onclick={() => (showCreateForm = true)}
+			<a
+				href="/campaigns/new"
 				class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
 			>
 				+ New Campaign
-			</button>
+			</a>
 		</div>
 	</div>
 
@@ -129,12 +99,12 @@
 					</p>
 				</div>
 				<div class="flex flex-col gap-2">
-					<button
-						onclick={() => openEditForm(campaign)}
-						class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+					<a
+						href="/campaigns/{campaign.id}"
+						class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-center"
 					>
-						Edit
-					</button>
+						View
+					</a>
 					<button
 						onclick={async () => {
 							if (confirm(`Delete campaign "${campaign.name}"?`)) {
@@ -154,108 +124,13 @@
 		{:else}
 			<div class="text-center py-12 text-gray-500">
 				<p class="text-lg mb-4">No campaigns yet</p>
-				<button
-					onclick={() => (showCreateForm = true)}
-					class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+				<a
+					href="/campaigns/new"
+					class="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
 				>
 					Create your first campaign
-				</button>
+				</a>
 			</div>
 		{/each}
 	</div>
 </div>
-
-<!-- Create Form Modal -->
-{#if showCreateForm}
-	<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-		<div class="bg-white rounded-lg p-6 max-w-2xl w-full">
-			<h2 class="text-2xl font-bold mb-4">Create Campaign</h2>
-			<form {...createForm} onsubmit={() => {showCreateForm = false}}>
-				<div class="space-y-4">
-					<div>
-						<label for="create-name" class="block text-sm font-medium text-gray-700 mb-1"
-							>Name</label
-						>
-						<input
-							id="create-name"
-							{...createForm.fields.name.as('text')}
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-						/>
-					</div>
-					<div>
-						<label for="create-content" class="block text-sm font-medium text-gray-700 mb-1"
-							>Content (JSON)</label
-						>
-						<textarea
-							id="create-content"
-							name="content"
-							rows="10"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-						></textarea>
-					</div>
-					<div class="flex gap-2 justify-end">
-						<button
-							onclick={() => (showCreateForm = false)}
-							type="button"
-							class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-						>
-							Cancel
-						</button>
-						<button
-							type="submit"
-							class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-						>
-							Create
-						</button>
-					</div>
-				</div>
-			</form>
-		</div>
-	</div>
-{/if}
-
-<!-- Edit Form Modal -->
-{#if editingCampaign}
-	<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-		<div class="bg-white rounded-lg p-6 max-w-2xl w-full">
-			<h2 class="text-2xl font-bold mb-4">Edit Campaign</h2>
-			<form onsubmit={(e) => { e.preventDefault(); handleUpdate(); }}>
-				<div class="space-y-4">
-					<div>
-						<label for="edit-name" class="block text-sm font-medium text-gray-700 mb-1"
-							>Name</label
-						>
-						<input
-							id="edit-name"
-							bind:value={editName}
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-						/>
-					</div>
-					<div>
-						<label for="edit-content" class="block text-sm font-medium text-gray-700 mb-1"
-							>Content (JSON)</label
-						>
-						<textarea
-							id="edit-content"
-							bind:value={editContent}
-							rows="10"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-						></textarea>
-					</div>
-					<div class="flex gap-2 justify-end">
-						<button
-							onclick={closeEditForm}
-							type="button"
-							class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-						>
-							Cancel
-						</button>
-						<button type="submit" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
-							Save
-						</button>
-					</div>
-				</div>
-			</form>
-		</div>
-	</div>
-{/if}
