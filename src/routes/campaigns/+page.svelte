@@ -1,312 +1,261 @@
 <script lang="ts">
-	// Import only types from server
-	import type { Campaign } from './+page.server';
+	import { listCampaigns, createCampaign, updateCampaign, deleteCampaigns } from './campaigns.remote';
+	import type { Campaign } from './campaigns.remote';
 
-	// Helper to call remote functions via the server endpoint
-	async function callRemoteFunction(action: string, params: any = {}): Promise<any> {
-		const response = await fetch('/campaigns', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ action, ...params })
-		});
-
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error || `Failed: ${response.status}`);
-		}
-
-		return response.json();
-	}
-
-	const listCampaigns = async (): Promise<Campaign[]> => {
-		return await callRemoteFunction('listCampaigns');
-	};
-
-	const createCampaign = async (data: { name: string; content: Record<string, any> }): Promise<Campaign> => {
-		return await callRemoteFunction('createCampaign', { data });
-	};
-
-	const updateCampaign = async (campaignId: string, data: { name?: string; content?: Record<string, any> }): Promise<Campaign> => {
-		return await callRemoteFunction('updateCampaign', { campaignId, data });
-	};
-
-	const deleteCampaigns = async (campaignIds: string[]): Promise<void> => {
-		return await callRemoteFunction('deleteCampaigns', { campaignIds });
-	};
-
-	// Reactive state using Svelte 5 runes
-	let campaigns: Campaign[] = $state([]);
+	// Form state
+	let showCreateForm = $state(false);
+	let editingCampaign: Campaign | null = $state(null);
+	let editName = $state('');
+	let editContent = $state('{}');
 	let selectedIds: Set<string> = $state(new Set());
-	let showForm = $state(false);
-	let editingId: string | null = $state(null);
-	let formName = $state('');
-	let formContent = $state('');
-	let isLoading = $state(false);
-	let error: string | null = $state(null);
-	let success: string | null = $state(null);
 
-	// Initialize campaigns on mount
-	async function initializeCampaigns() {
-		try {
-			const result = await listCampaigns();
-			campaigns = result;
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load campaigns';
-		}
+	// Create form reference  
+	const createForm = createCampaign;
+
+	function openEditForm(campaign: Campaign) {
+		editingCampaign = campaign;
+		editName = campaign.name;
+		editContent = JSON.stringify(campaign.content, null, 2);
 	}
 
-	function resetForm() {
-		formName = '';
-		formContent = '';
-		editingId = null;
-		showForm = false;
-	}
-
-	async function handleSubmit() {
-		const name = formName;
-		const content = formContent;
-		const eid = editingId;
-
-		if (!name.trim()) {
-			error = 'Campaign name is required';
-			return;
-		}
-
-		try {
-			JSON.parse(content || '{}');
-		} catch {
-			error = 'Content must be valid JSON';
-			return;
-		}
-
-		isLoading = true;
-		error = null;
-		success = null;
-
-		try {
-			const parsedContent = content ? JSON.parse(content) : {};
-
-			if (eid) {
-				await updateCampaign(eid, {
-					name: name.trim(),
-					content: parsedContent
-				});
-				success = 'Campaign updated';
-			} else {
-				await createCampaign({
-					name: name.trim(),
-					content: parsedContent
-				});
-				success = 'Campaign created';
-			}
-
-			// Refresh campaigns list
-			await initializeCampaigns();
-			resetForm();
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'An error occurred';
-		} finally {
-			isLoading = false;
-		}
+	function closeEditForm() {
+		editingCampaign = null;
 	}
 
 	async function handleDelete() {
 		if (selectedIds.size === 0) return;
-
-		isLoading = true;
-		error = null;
+		if (!confirm(`Delete ${selectedIds.size} campaign(s)?`)) return;
 
 		try {
-			const idsToDelete = Array.from(selectedIds);
-			await deleteCampaigns(idsToDelete);
-
-			campaigns = campaigns.filter((camp) => !selectedIds.has(camp.id));
-			selectedIds.clear();
-			success = `${idsToDelete.length} campaign(s) deleted`;
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'An error occurred';
-		} finally {
-			isLoading = false;
+			await deleteCampaigns(Array.from(selectedIds)).updates(listCampaigns());
+			selectedIds = new Set(); // Clear and trigger reactivity
+		} catch (error) {
+			alert('Failed to delete campaigns');
 		}
 	}
 
-	function toggleAll() {
+	async function handleUpdate() {
+		if (!editingCampaign) return;
+		
+		try {
+			const content = JSON.parse(editContent);
+			await updateCampaign({ id: editingCampaign.id, name: editName, content }).updates(
+				listCampaigns()
+			);
+			closeEditForm();
+		} catch (error) {
+			alert('Failed to update campaign');
+		}
+	}
+
+	function toggleSelection(id: string) {
+		if (selectedIds.has(id)) {
+			selectedIds = new Set([...selectedIds].filter(sid => sid !== id));
+		} else {
+			selectedIds = new Set([...selectedIds, id]);
+		}
+	}
+
+	async function toggleSelectAll() {
+		const campaigns = await listCampaigns();
 		if (selectedIds.size === campaigns.length) {
-			selectedIds.clear();
+			selectedIds = new Set();
 		} else {
 			selectedIds = new Set(campaigns.map((c) => c.id));
 		}
 	}
-
-	function editCampaign(campaign: Campaign) {
-		editingId = campaign.id;
-		formName = campaign.name;
-		formContent = JSON.stringify(campaign.content, null, 2);
-		showForm = true;
-	}
-
-	function toggleSelect(id: string) {
-		if (selectedIds.has(id)) {
-			selectedIds.delete(id);
-		} else {
-			selectedIds.add(id);
-		}
-		selectedIds = selectedIds;
-	}
 </script>
 
-<svelte:window onload={initializeCampaigns} />
+<div class="container mx-auto px-4 py-8">
+	<!-- Breadcrumb Navigation -->
+	<nav class="mb-4 text-sm">
+		<ol class="flex items-center space-x-2 text-gray-600">
+			<li>
+				<a href="/" class="hover:text-blue-600 hover:underline">Home</a>
+			</li>
+			<li>
+				<span class="text-gray-400">/</span>
+			</li>
+			<li class="text-gray-900 font-medium">Campaigns</li>
+		</ol>
+	</nav>
 
-<div class="p-6 max-w-6xl mx-auto">
 	<div class="flex justify-between items-center mb-6">
 		<h1 class="text-3xl font-bold">Campaigns</h1>
-		<button
-			onclick={() => (showForm = !showForm)}
-			class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
-			disabled={isLoading}
-		>
-			{showForm ? 'Cancel' : 'New Campaign'}
-		</button>
+		<div class="flex gap-2">
+			{#if selectedIds.size > 0}
+				<button
+					onclick={toggleSelectAll}
+					class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+				>
+					{#await listCampaigns() then campaigns}
+						{selectedIds.size === campaigns.length ? 'Deselect All' : 'Select All'}
+					{/await}
+				</button>
+				<button
+					onclick={handleDelete}
+					class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+				>
+					Delete Selected ({selectedIds.size})
+				</button>
+			{/if}
+			<button
+				onclick={() => (showCreateForm = true)}
+				class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+			>
+				+ New Campaign
+			</button>
+		</div>
 	</div>
 
-	{#if success}
-		<div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
-			<p class="text-green-800">{success}</p>
-		</div>
-	{/if}
-
-	{#if error}
-		<div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-			<p class="text-red-800">{error}</p>
-		</div>
-	{/if}
-
-	{#if showForm}
-		<div class="border rounded-lg p-4 mb-6 bg-gray-50">
-			<h2 class="text-lg font-semibold mb-4">
-				{editingId ? 'Edit Campaign' : 'Create Campaign'}
-			</h2>
-
-			<div class="space-y-4">
-				<div>
-					<label for="name" class="block text-sm font-medium mb-1">Campaign Name</label>
-					<input
-						id="name"
-						type="text"
-						bind:value={formName}
-						placeholder="My Campaign"
-						disabled={isLoading}
-						class="w-full px-3 py-2 border rounded-md disabled:opacity-50"
-					/>
+	<div class="grid gap-4">
+		{#each await listCampaigns() as campaign (campaign.id)}
+			<div class="bg-white shadow rounded-lg p-6 flex items-start gap-4">
+				<input
+					type="checkbox"
+					checked={selectedIds.has(campaign.id)}
+					onchange={() => toggleSelection(campaign.id)}
+					class="mt-1 w-4 h-4 text-blue-600"
+				/>
+				<div class="flex-1">
+					<h2 class="text-xl font-semibold mb-2">{campaign.name}</h2>
+					<pre class="bg-gray-50 p-4 rounded text-sm overflow-auto">{JSON.stringify(
+							campaign.content,
+							null,
+							2
+						)}</pre>
+					<p class="text-sm text-gray-500 mt-2">
+						Created: {new Date(campaign.createdAt).toLocaleString()}
+					</p>
 				</div>
-
-				<div>
-					<label for="content" class="block text-sm font-medium mb-1">Content (JSON)</label>
-					<textarea
-						id="content"
-						bind:value={formContent}
-						class="w-full h-32 p-2 border rounded font-mono text-sm disabled:opacity-50"
-						placeholder="Enter JSON content"
-						disabled={isLoading}
-					></textarea>
-				</div>
-
-				<div class="flex gap-2 justify-end">
+				<div class="flex flex-col gap-2">
 					<button
-						onclick={resetForm}
-						class="px-4 py-2 border rounded-md hover:bg-gray-100 disabled:opacity-50 transition-colors"
-						disabled={isLoading}
+						onclick={() => openEditForm(campaign)}
+						class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
 					>
-						Cancel
+						Edit
 					</button>
 					<button
-						onclick={handleSubmit}
-						class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
-						disabled={isLoading}
+						onclick={async () => {
+							if (confirm(`Delete campaign "${campaign.name}"?`)) {
+								try {
+									await deleteCampaigns([campaign.id]).updates(listCampaigns());
+								} catch (error) {
+									alert('Failed to delete campaign');
+								}
+							}
+						}}
+						class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
 					>
-						{isLoading ? 'Saving...' : editingId ? 'Update' : 'Create'}
+						Delete
 					</button>
 				</div>
 			</div>
-		</div>
-	{/if}
-
-	{#if selectedIds.size > 0}
-		<div class="flex gap-2 mb-4 items-center">
-			<span class="text-sm text-gray-600">{selectedIds.size} selected</span>
-			<button
-				onclick={handleDelete}
-				class="px-3 py-1 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors"
-				disabled={isLoading}
-			>
-				Delete Selected
-			</button>
-		</div>
-	{/if}
-
-	{#if campaigns.length === 0}
-		<div class="text-center py-12">
-			<p class="text-gray-500 mb-4">No campaigns yet. Create one to get started.</p>
-		</div>
-	{:else}
-		<div class="border rounded-lg overflow-hidden">
-			<table class="w-full">
-				<thead>
-					<tr class="border-b bg-gray-50">
-						<th class="w-12 p-3 text-left">
-							<input
-								type="checkbox"
-								checked={selectedIds.size === campaigns.length && campaigns.length > 0}
-								onchange={() => toggleAll()}
-								class="cursor-pointer"
-							/>
-						</th>
-						<th class="p-3 text-left">Name</th>
-						<th class="p-3 text-left">Created</th>
-						<th class="p-3 text-right">Actions</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each campaigns as campaign (campaign.id)}
-						<tr class="border-b hover:bg-gray-50">
-							<td class="p-3">
-								<input
-									type="checkbox"
-									checked={selectedIds.has(campaign.id)}
-									onchange={() => toggleSelect(campaign.id)}
-									class="cursor-pointer"
-								/>
-							</td>
-							<td class="p-3">
-								<a
-									href={`/campaigns/${campaign.id}`}
-									class="hover:underline font-medium text-blue-600"
-								>
-									{campaign.name}
-								</a>
-							</td>
-							<td class="p-3 text-sm text-gray-500">
-								{new Date(campaign.createdAt).toLocaleDateString()}
-							</td>
-							<td class="p-3 text-right">
-								<div class="flex gap-2 justify-end">
-									<button
-										onclick={() => editCampaign(campaign)}
-										class="px-3 py-1 text-sm border rounded-md hover:bg-gray-100 transition-colors"
-									>
-										Edit
-									</button>
-									<a href={`/campaigns/${campaign.id}`}>
-										<button class="px-3 py-1 text-sm border rounded-md hover:bg-gray-100 transition-colors">
-											View
-										</button>
-									</a>
-								</div>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	{/if}
+		{:else}
+			<div class="text-center py-12 text-gray-500">
+				<p class="text-lg mb-4">No campaigns yet</p>
+				<button
+					onclick={() => (showCreateForm = true)}
+					class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+				>
+					Create your first campaign
+				</button>
+			</div>
+		{/each}
+	</div>
 </div>
+
+<!-- Create Form Modal -->
+{#if showCreateForm}
+	<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+		<div class="bg-white rounded-lg p-6 max-w-2xl w-full">
+			<h2 class="text-2xl font-bold mb-4">Create Campaign</h2>
+			<form {...createForm} onsubmit={() => {showCreateForm = false}}>
+				<div class="space-y-4">
+					<div>
+						<label for="create-name" class="block text-sm font-medium text-gray-700 mb-1"
+							>Name</label
+						>
+						<input
+							id="create-name"
+							{...createForm.fields.name.as('text')}
+							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+						/>
+					</div>
+					<div>
+						<label for="create-content" class="block text-sm font-medium text-gray-700 mb-1"
+							>Content (JSON)</label
+						>
+						<textarea
+							id="create-content"
+							name="content"
+							rows="10"
+							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+						></textarea>
+					</div>
+					<div class="flex gap-2 justify-end">
+						<button
+							onclick={() => (showCreateForm = false)}
+							type="button"
+							class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+						>
+							Cancel
+						</button>
+						<button
+							type="submit"
+							class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+						>
+							Create
+						</button>
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
+
+<!-- Edit Form Modal -->
+{#if editingCampaign}
+	<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+		<div class="bg-white rounded-lg p-6 max-w-2xl w-full">
+			<h2 class="text-2xl font-bold mb-4">Edit Campaign</h2>
+			<form onsubmit={(e) => { e.preventDefault(); handleUpdate(); }}>
+				<div class="space-y-4">
+					<div>
+						<label for="edit-name" class="block text-sm font-medium text-gray-700 mb-1"
+							>Name</label
+						>
+						<input
+							id="edit-name"
+							bind:value={editName}
+							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+						/>
+					</div>
+					<div>
+						<label for="edit-content" class="block text-sm font-medium text-gray-700 mb-1"
+							>Content (JSON)</label
+						>
+						<textarea
+							id="edit-content"
+							bind:value={editContent}
+							rows="10"
+							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+						></textarea>
+					</div>
+					<div class="flex gap-2 justify-end">
+						<button
+							onclick={closeEditForm}
+							type="button"
+							class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+						>
+							Cancel
+						</button>
+						<button type="submit" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+							Save
+						</button>
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}

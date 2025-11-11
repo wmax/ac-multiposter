@@ -17,6 +17,9 @@ importers:
       postgres:
         specifier: ^3.4.7
         version: 3.4.7
+      zod:
+        specifier: ^4.1.12
+        version: 4.1.12
     devDependencies:
       '@inlang/paraglide-js':
         specifier: ^2.4.0

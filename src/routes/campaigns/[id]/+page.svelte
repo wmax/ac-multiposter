@@ -133,9 +133,29 @@
 <svelte:window onload={loadCampaign} />
 
 <div class="p-6 max-w-4xl mx-auto">
+	<!-- Breadcrumb Navigation -->
+	<nav class="mb-4 text-sm">
+		<ol class="flex items-center space-x-2 text-gray-600">
+			<li>
+				<a href="/" class="hover:text-blue-600 hover:underline">Home</a>
+			</li>
+			<li>
+				<span class="text-gray-400">/</span>
+			</li>
+			<li>
+				<a href="/campaigns" class="hover:text-blue-600 hover:underline">Campaigns</a>
+			</li>
+			<li>
+				<span class="text-gray-400">/</span>
+			</li>
+			<li class="text-gray-900 font-medium truncate max-w-xs">
+				{campaign?.name || 'Loading...'}
+			</li>
+		</ol>
+	</nav>
+
 	<div class="flex items-center justify-between mb-6">
 		<div>
-			<a href="/campaigns" class="text-blue-600 hover:underline mb-2 inline-block">← Back to Campaigns</a>
 			<h1 class="text-3xl font-bold">
 				{campaign?.name || 'Loading...'}
 			</h1>
