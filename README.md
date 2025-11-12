@@ -64,10 +64,12 @@ To enable Google Calendar synchronization, you need to create a Google Cloud pro
 3. Choose **Web application** as the application type
 4. Enter a name (e.g., "AC Multiposter Local Dev")
 5. Under **Authorized redirect URIs**, add:
-   - `http://localhost:5173/api/auth/callback/google`
+   - `https://localhost:5173/api/auth/callback/google` (HTTPS required for webhooks)
    - (Add additional URIs for staging/production as needed)
 6. Click **Create**
 7. Copy the **Client ID** and **Client Secret** - you'll need these for your `.env.local` file
+
+**Note:** The dev server runs with HTTPS using a self-signed certificate. This is required for Google Calendar webhooks to work locally.
 
 ### 5. Add Credentials to Environment
 
@@ -76,6 +78,7 @@ Add the credentials to your `.env.local` file:
 ```env
 GOOGLE_CLIENT_ID=your-client-id-here.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret-here
+BETTER_AUTH_URL=https://localhost:5173
 ```
 
 ### Testing Stage Notes
@@ -98,8 +101,8 @@ Create a `.env.local` file in the project root with at least:
 ```env
 DATABASE_URL=postgres://USER:PASS@localhost:5432/ac_multiposter
 
-# URL your app will run on locally
-BETTER_AUTH_URL=http://localhost:5173
+# URL your app will run on locally (HTTPS for webhook testing)
+BETTER_AUTH_URL=https://localhost:5173
 
 # OAuth providers (pick at least one and fill in values)
 GOOGLE_CLIENT_ID=your-google-client-id
@@ -110,11 +113,21 @@ MICROSOFT_CLIENT_SECRET=your-microsoft-client-secret
 ```
 
 Notes:
-- `DATABASE_URL` is required. The app will throw if it’s missing.
-- `BETTER_AUTH_URL` should match where you run the app locally (default Vite dev URL).
+- `DATABASE_URL` is required. The app will throw if it's missing.
+- `BETTER_AUTH_URL` should be **`https://localhost:5173`** for local dev (required for Google Calendar webhooks)
+- The dev server runs with HTTPS using `vite-plugin-mkcert` (automatic self-signed certificate)
 - OAuth callback URLs to configure with your providers:
-	- Google: `http://localhost:5173/api/auth/callback/google`
-	- Microsoft: `http://localhost:5173/api/auth/callback/microsoft`
+	- Google: `https://localhost:5173/api/auth/callback/google` (use HTTPS)
+	- Microsoft: `https://localhost:5173/api/auth/callback/microsoft` (use HTTPS)
+	- Microsoft scope used: `Calendars.ReadWrite` and `offline_access`
+
+Notes:
+- `DATABASE_URL` is required. The app will throw if it's missing.
+- `BETTER_AUTH_URL` should be **`https://localhost:5173`** for local dev (required for Google Calendar webhooks)
+- The dev server runs with HTTPS using `vite-plugin-mkcert` (automatic self-signed certificate)
+- OAuth callback URLs to configure with your providers (must use HTTPS):
+	- Google: `https://localhost:5173/api/auth/callback/google`
+	- Microsoft: `https://localhost:5173/api/auth/callback/microsoft`
 	- Microsoft scope used: `Calendars.ReadWrite` and `offline_access`
 
 ## 3) Initialize the database
@@ -139,7 +152,9 @@ pnpm db:studio
 pnpm dev
 ```
 
-Visit http://localhost:5173 and use the “Sign In” menu in the header to authenticate with Google or Microsoft.
+Visit https://localhost:5173 and use the "Sign In" menu in the header to authenticate with Google or Microsoft.
+
+**Note:** Your browser may show a security warning about the self-signed certificate. This is expected - click "Advanced" and "Proceed to localhost" to continue.
 
 ## 5) Grant yourself access (roles/claims)
 
@@ -230,6 +245,128 @@ pnpm test
 	- You may be signed in, but your user lacks the claims
 	- Set `roles` to `['admin']` (full access) or toggle specific claims in the DB
 
-- Social sign-in doesn’t redirect correctly
-	- Ensure your provider app’s redirect URIs are set to `http://localhost:5173/api/auth/callback/<provider>`
-	- Confirm `BETTER_AUTH_URL` is `http://localhost:5173` during local development
+- Social sign-in doesn't redirect correctly
+	- Ensure your provider app's redirect URIs are set to `https://localhost:5173/api/auth/callback/<provider>`
+	- Confirm `BETTER_AUTH_URL` is `https://localhost:5173` during local development
+
+## Google Calendar Webhooks (Push Notifications)
+
+**Important: Google Calendar webhooks require HTTPS.** The dev server is configured to run with HTTPS using `vite-plugin-mkcert` for automatic self-signed certificates. This is essential for testing synchronizations locally.
+
+The app automatically sets up webhooks with Google Calendar when you create a synchronization with **pull** or **bidirectional** direction. This allows Google Calendar to push updates to your app when events change on their side.
+
+### How it works
+
+1. **Webhook Setup**: When you create a sync, the app calls Google's `watch()` API to register a webhook
+2. **Push Notifications**: Google sends notifications to `/api/sync/webhook/google-calendar` when events change
+3. **Automatic Sync**: The webhook handler triggers a sync to pull the latest changes
+4. **Webhook Renewal**: Webhooks expire after ~7 days, so they need to be renewed periodically
+
+### Webhook Endpoint Requirements
+
+For webhooks to work, your app must:
+
+1. **Use HTTPS** - Google Calendar webhooks **require HTTPS**
+2. **Be publicly accessible** - Google needs to reach your webhook endpoint (localhost won't work)
+3. **Have the correct `BETTER_AUTH_URL`**:
+   ```env
+   # Production
+   BETTER_AUTH_URL=https://your-domain.com
+   
+   # Local development with ngrok (see below)
+   BETTER_AUTH_URL=https://your-unique-id.ngrok-free.app
+   ```
+
+### Testing Webhooks Locally with ngrok
+
+Since Google can't reach localhost, you need to expose your local server using a tunnel service like ngrok:
+
+#### 1. Install ngrok
+
+Download from [ngrok.com](https://ngrok.com/download) or use a package manager:
+
+```powershell
+# Windows (using Chocolatey)
+choco install ngrok
+
+# Or download directly from ngrok.com
+```
+
+#### 2. Start your dev server
+
+```powershell
+pnpm dev
+```
+
+Your app runs at `https://localhost:5173`
+
+#### 3. Start ngrok tunnel
+
+In a separate terminal:
+
+```powershell
+ngrok http https://localhost:5173
+```
+
+**Important:** Note the HTTPS URL ngrok provides (e.g., `https://abc123.ngrok-free.app`)
+
+#### 4. Update your environment
+
+Update `.env` with the ngrok URL:
+
+```env
+BETTER_AUTH_URL=https://abc123.ngrok-free.app
+```
+
+Restart your dev server to pick up the new URL.
+
+#### 5. Update Google OAuth redirect URI
+
+In Google Cloud Console, add the ngrok URL to authorized redirect URIs:
+- `https://abc123.ngrok-free.app/api/auth/callback/google`
+
+#### 6. Create synchronization
+
+Now when you create a sync, the webhook will be registered with the ngrok URL, and Google can send notifications to it.
+
+**Note:** Free ngrok URLs change each time you restart ngrok. For persistent URLs, consider:
+- ngrok paid plan (persistent domains)
+- Deployment to a staging environment
+- Other tunnel services like localtunnel, Cloudflare Tunnel
+
+### Automatic Webhook Renewal
+
+Webhooks are automatically renewed daily via a cron job. Two options:
+
+#### Option 1: Vercel Cron (Recommended if hosting on Vercel)
+
+The included `vercel.json` configures a daily cron job automatically. No additional setup needed.
+
+#### Option 2: External Cron Service
+
+If not using Vercel, set up an external cron job to call the renewal endpoint:
+
+1. Set a secret token in your environment:
+   ```env
+   CRON_SECRET=your-random-secret-token-here
+   ```
+
+2. Configure a cron service (cron-job.org, EasyCron, GitHub Actions) to call daily:
+   ```bash
+   curl -X POST https://your-domain.com/api/sync/renew-webhooks \
+     -H "Authorization: Bearer your-random-secret-token-here"
+   ```
+
+### Manual Testing with curl
+
+Once your webhook is set up (via ngrok or production deployment), you can manually test the endpoint. See `src/routes/api/sync/webhook/google-calendar/TESTING.md` for comprehensive testing instructions including:
+- Manual testing with curl
+- Automated test suite  
+- Webhook header reference
+- Troubleshooting guide
+
+**Note:** The automated test suite runs without needing ngrok, but real webhook notifications from Google require a publicly accessible URL.
+
+### Webhook Cleanup
+
+Webhooks are automatically canceled when you delete a synchronization. This prevents orphaned webhooks and unnecessary notifications.

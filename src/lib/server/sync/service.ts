@@ -18,6 +18,7 @@ import {
 import { eq, and, isNull, lt, inArray } from 'drizzle-orm';
 import { GoogleCalendarProvider } from './providers/google-calendar';
 import crypto from 'crypto';
+import { env } from '$env/dynamic/private';
 
 /**
  * Central sync service orchestrator
@@ -403,7 +404,9 @@ export class SyncService {
 	/**
 	 * Setup webhook for a sync config
 	 */
-	async setupWebhook(configId: string, callbackUrl: string): Promise<void> {
+	async setupWebhook(configId: string): Promise<void> {
+		console.log(`[SyncService] Setting up webhook for config: ${configId}`);
+
 		const [configRow] = await db.select().from(syncConfigTable).where(eq(syncConfigTable.id, configId));
 
 		if (!configRow) {
@@ -414,7 +417,8 @@ export class SyncService {
 		const provider = await this.getProviderInstance(config);
 
 		if (!provider.supportsWebhooks) {
-			throw new Error(`Provider ${config.providerType} does not support webhooks`);
+			console.log(`[SyncService] Provider ${config.providerType} does not support webhooks`);
+			return;
 		}
 
 		// Cancel existing webhooks
@@ -425,29 +429,48 @@ export class SyncService {
 
 		for (const sub of existingSubscriptions) {
 			try {
-				await provider.cancelWebhook?.(sub);
+				if (provider.cancelWebhook) {
+					await provider.cancelWebhook(sub);
+				}
 			} catch (error) {
 				console.error('Failed to cancel existing webhook:', error);
 			}
 			await db.delete(webhookSubscriptionTable).where(eq(webhookSubscriptionTable.id, sub.id));
 		}
 
-		// Setup new webhook
-		const subscription = await provider.setupWebhook?.(callbackUrl);
+		// Construct callback URL
+		const baseUrl = env.BETTER_AUTH_URL || 'https://localhost:5173';
+		const callbackUrl = `${baseUrl}/api/sync/webhook/${config.providerType}`;
 
-		if (subscription) {
-			await db.insert(webhookSubscriptionTable).values(subscription);
-			await db
-				.update(syncConfigTable)
-				.set({ webhookId: subscription.channelId })
-				.where(eq(syncConfigTable.id, configId));
+		console.log(`[SyncService] Creating webhook subscription with callback: ${callbackUrl}`);
+
+		// Setup new webhook
+		if (provider.setupWebhook) {
+			const subscription = await provider.setupWebhook(callbackUrl);
+
+			if (subscription) {
+				await db.insert(webhookSubscriptionTable).values(subscription);
+				await db
+					.update(syncConfigTable)
+					.set({ webhookId: subscription.id })
+					.where(eq(syncConfigTable.id, configId));
+
+				console.log(`[SyncService] Webhook setup completed:`, {
+					subscriptionId: subscription.id,
+					channelId: subscription.channelId,
+					expiresAt: subscription.expiresAt
+				});
+			}
 		}
 	}
 
 	/**
 	 * Renew expiring webhooks
+	 * Should be called periodically (e.g., daily cron job)
 	 */
 	async renewWebhooks(): Promise<void> {
+		console.log(`[SyncService] Checking for expiring webhooks...`);
+
 		const expiringDate = new Date();
 		expiringDate.setHours(expiringDate.getHours() + 24);
 
@@ -456,33 +479,58 @@ export class SyncService {
 			.from(webhookSubscriptionTable)
 			.where(lt(webhookSubscriptionTable.expiresAt, expiringDate));
 
+		console.log(`[SyncService] Found ${expiring.length} expiring webhooks`);
+
 		for (const subscription of expiring) {
 			try {
+				console.log(`[SyncService] Renewing webhook: ${subscription.id}`);
+
 				const [configRow] = await db
 					.select()
 					.from(syncConfigTable)
 					.where(eq(syncConfigTable.id, subscription.syncConfigId));
 
-				if (!configRow) continue;
-
-				const config = this.rowToConfig(configRow);
-				const provider = await this.getProviderInstance(config);
-				const newSubscription = await provider.renewWebhook?.(subscription);
-
-				if (newSubscription) {
+				if (!configRow || !configRow.enabled) {
+					console.log(`[SyncService] Sync config disabled or not found, deleting webhook: ${subscription.id}`);
 					await db
 						.delete(webhookSubscriptionTable)
 						.where(eq(webhookSubscriptionTable.id, subscription.id));
+					continue;
+				}
+
+				const config = this.rowToConfig(configRow);
+				const provider = await this.getProviderInstance(config);
+
+				if (!provider.supportsWebhooks || !provider.renewWebhook) {
+					console.log(`[SyncService] Provider does not support webhook renewal`);
+					continue;
+				}
+
+				const newSubscription = await provider.renewWebhook(subscription);
+
+				if (newSubscription) {
+					// Delete old subscription
+					await db
+						.delete(webhookSubscriptionTable)
+						.where(eq(webhookSubscriptionTable.id, subscription.id));
+
+					// Insert new subscription
 					await db.insert(webhookSubscriptionTable).values(newSubscription);
+
+					// Update sync config with new webhook ID
 					await db
 						.update(syncConfigTable)
-						.set({ webhookId: newSubscription.channelId })
+						.set({ webhookId: newSubscription.id })
 						.where(eq(syncConfigTable.id, config.id));
+
+					console.log(`[SyncService] Webhook renewed: ${subscription.id}, new expiry: ${newSubscription.expiresAt}`);
 				}
-			} catch (error) {
-				console.error(`Failed to renew webhook for subscription ${subscription.id}:`, error);
+			} catch (error: any) {
+				console.error(`[SyncService] Failed to renew webhook for subscription ${subscription.id}:`, error);
 			}
 		}
+
+		console.log(`[SyncService] Webhook renewal completed`);
 	}
 
 	/**
@@ -735,6 +783,65 @@ export class SyncService {
 		} catch (error: any) {
 			console.error(`[SyncService] Error in deleteEventMappings:`, error);
 			// Don't throw - sync failures shouldn't break delete operations
+		}
+	}
+
+	/**
+	 * Cancel webhook for a sync configuration
+	 * Stops receiving push notifications from the provider
+	 */
+	async cancelWebhook(configId: string): Promise<void> {
+		console.log(`[SyncService] Canceling webhook for config: ${configId}`);
+
+		try {
+			// Get sync config
+			const [configRow] = await db
+				.select()
+				.from(syncConfigTable)
+				.where(eq(syncConfigTable.id, configId));
+
+			if (!configRow || !configRow.webhookId) {
+				console.log(`[SyncService] No webhook found for config: ${configId}`);
+				return;
+			}
+
+			const config = this.rowToConfig(configRow);
+
+			// Get webhook subscription
+			const [subscription] = await db
+				.select()
+				.from(webhookSubscriptionTable)
+				.where(eq(webhookSubscriptionTable.id, configRow.webhookId));
+
+			if (!subscription) {
+				console.log(`[SyncService] Webhook subscription not found: ${configRow.webhookId}`);
+				return;
+			}
+
+			// Initialize provider
+			const provider = await this.getProviderInstance(config);
+
+			// Cancel webhook with provider
+			if (provider.supportsWebhooks && provider.cancelWebhook) {
+				console.log(`[SyncService] Stopping webhook channel: ${subscription.channelId}`);
+				await provider.cancelWebhook(subscription);
+			}
+
+			// Delete subscription from database
+			await db
+				.delete(webhookSubscriptionTable)
+				.where(eq(webhookSubscriptionTable.id, subscription.id));
+
+			// Clear webhook ID from sync config
+			await db
+				.update(syncConfigTable)
+				.set({ webhookId: null })
+				.where(eq(syncConfigTable.id, configId));
+
+			console.log(`[SyncService] Webhook canceled successfully`);
+		} catch (error: any) {
+			console.error(`[SyncService] Failed to cancel webhook:`, error);
+			// Don't throw - webhook may have already expired or been deleted
 		}
 	}
 }

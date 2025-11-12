@@ -7,6 +7,7 @@ import { account } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import type { SyncDirection } from '$lib/server/sync/types';
+import { syncService } from '$lib/server/sync/service';
 
 export interface CreateSyncInput {
 	providerType: 'google-calendar' | 'microsoft-calendar';
@@ -61,10 +62,11 @@ export const create = command(createSyncSchema, async (input: CreateSyncInput) =
 	}
 
 	// Create sync config with OAuth credentials
+	const newConfigId = crypto.randomUUID();
 	const config = await db
 		.insert(syncConfig)
 		.values({
-			id: crypto.randomUUID(),
+			id: newConfigId,
 			userId: user.id,
 			providerId: input.providerId,
 			providerType: input.providerType,
@@ -80,6 +82,18 @@ export const create = command(createSyncSchema, async (input: CreateSyncInput) =
 			updatedAt: new Date()
 		})
 		.returning();
+
+	// Setup webhook for push notifications if direction is pull or bidirectional
+	if (input.direction === 'pull' || input.direction === 'bidirectional') {
+		try {
+			console.log(`[CreateSync] Setting up webhook for config: ${newConfigId}`);
+			await syncService.setupWebhook(newConfigId);
+		} catch (error: any) {
+			console.error(`[CreateSync] Failed to setup webhook:`, error);
+			// Don't fail the sync creation if webhook setup fails
+			// User can still manually sync or retry webhook setup later
+		}
+	}
 
 	return config[0];
 });

@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/sync/renew-webhooks",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
