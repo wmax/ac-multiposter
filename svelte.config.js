@@ -9,8 +9,8 @@ const config = {
 	kit: {
 		// Using Cloudflare Pages adapter for deployment
 		adapter: adapter({
-			// Path to wrangler configuration file
-			config: 'wrangler.jsonc',
+			// Path to wrangler configuration file (for Pages)
+			config: 'wrangler.json',
 			// Enable platform emulation during dev/preview
 			platformProxy: {
 				persist: true
