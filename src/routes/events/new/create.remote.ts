@@ -5,6 +5,7 @@ import { db } from '$lib/server/db';
 import { event } from '$lib/server/db/schema';
 import { listEvents } from '../list.remote';
 import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
+import { syncService } from '$lib/server/sync/service';
 
 /**
  * Schema for creating a new event
@@ -50,6 +51,24 @@ export const createEvent = command(createEventSchema, async (data) => {
 	const user = getAuthenticatedUser();
 	ensureAccess(user, 'events');
 
+	// Validate date/time ranges
+	// For all-day events
+	if (data.startDate && data.endDate) {
+		if (data.endDate < data.startDate) {
+			throw new Error('End date must be the same as or after the start date');
+		}
+	}
+	
+	// For date-time events
+	if (data.startDateTime && data.endDateTime) {
+		const startDateTime = new Date(data.startDateTime);
+		const endDateTime = new Date(data.endDateTime);
+		
+		if (endDateTime <= startDateTime) {
+			throw new Error('End date and time must be after the start date and time');
+		}
+	}
+
 	// Generate a unique ID for the event
 	const id = crypto.randomUUID();
 
@@ -86,6 +105,11 @@ export const createEvent = command(createEventSchema, async (data) => {
 		locked: false,
 		privateCopy: false,
 		sequence: 0,
+	});
+
+	// Trigger sync to external providers (non-blocking)
+	syncService.syncSpecificEvents(user.id, [id]).catch((error) => {
+		console.error('[createEvent] Failed to sync event to providers:', error);
 	});
 
 	return { success: true, id };

@@ -17,6 +17,74 @@ What you’ll set up:
 	- Google OAuth Client ID/Secret
 	- Microsoft Entra ID (Azure) App with Client ID/Secret
 
+## Setting up Google OAuth (Required for Calendar Sync)
+
+To enable Google Calendar synchronization, you need to create a Google Cloud project and configure OAuth credentials:
+
+### 1. Create a Google Cloud Project
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
+2. Click "Select a project" → "New Project"
+3. Enter a project name (e.g., "AC Multiposter Dev") and click "Create"
+4. Wait for the project to be created and select it
+
+### 2. Enable Google Calendar API
+
+1. In the Google Cloud Console, go to **APIs & Services** → **Library**
+2. Search for "Google Calendar API"
+3. Click on it and click **Enable**
+
+### 3. Configure OAuth Consent Screen
+
+1. Go to **APIs & Services** → **OAuth consent screen**
+2. Choose **External** (for testing) and click **Create**
+3. Fill in the required fields:
+   - **App name**: AC Multiposter (or your app name)
+   - **User support email**: Your email address
+   - **Developer contact information**: Your email address
+4. Click **Save and Continue**
+5. On the **Scopes** page:
+   - Click **Add or Remove Scopes**
+   - Search for and add these scopes:
+     - `openid`
+     - `profile`
+     - `email`
+     - `https://www.googleapis.com/auth/calendar` (Google Calendar API)
+   - Click **Update** and then **Save and Continue**
+6. On the **Test users** page (for testing stage):
+   - Click **Add Users**
+   - Enter the email addresses that will test the app (including your own)
+   - Click **Add** and then **Save and Continue**
+7. Review the summary and click **Back to Dashboard**
+
+### 4. Create OAuth Credentials
+
+1. Go to **APIs & Services** → **Credentials**
+2. Click **Create Credentials** → **OAuth client ID**
+3. Choose **Web application** as the application type
+4. Enter a name (e.g., "AC Multiposter Local Dev")
+5. Under **Authorized redirect URIs**, add:
+   - `http://localhost:5173/api/auth/callback/google`
+   - (Add additional URIs for staging/production as needed)
+6. Click **Create**
+7. Copy the **Client ID** and **Client Secret** - you'll need these for your `.env.local` file
+
+### 5. Add Credentials to Environment
+
+Add the credentials to your `.env.local` file:
+
+```env
+GOOGLE_CLIENT_ID=your-client-id-here.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret-here
+```
+
+### Testing Stage Notes
+
+- While your app is in **Testing** status (not published), only users added to the Test users list can sign in
+- You can add up to 100 test users
+- Test users won't see the "This app isn't verified" warning
+- For production, you'll need to submit your app for verification or publish it
+
 ## 1) Install dependencies
 
 ```powershell

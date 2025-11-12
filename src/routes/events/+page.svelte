@@ -6,19 +6,22 @@
 	import ListCard from '$lib/components/ui/ListCard.svelte';
 	import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
 	import { createMultiSelect } from '$lib/hooks/multiSelect.svelte';
+	import { toast } from '$lib/stores/toast.svelte';
 
 	// Multi-select state
 	const selection = createMultiSelect<Event>();
 
 	async function handleBulkDelete() {
 		if (selection.count === 0) return;
-		if (!confirm(`Delete ${selection.count} event(s)?`)) return;
+		const count = selection.count;
+		if (!confirm(`Delete ${count} event(s)?`)) return;
 
 		try {
 			await deleteEvents(selection.getSelectedArray()).updates(listEvents());
+			toast.success(`${count} event(s) deleted successfully!`);
 			selection.deselectAll();
-		} catch (error) {
-			alert('Failed to delete events');
+		} catch (error: any) {
+			toast.error(error.message || 'Failed to delete events');
 		}
 	}
 
@@ -90,6 +93,7 @@
 						editHref="/events/{event.id}?edit=1"
 						onDelete={async (id) => {
 							await deleteEvents([id]).updates(listEvents());
+							toast.success('Event deleted successfully!');
 						}}
 						deleteLabel="Delete"
 					>

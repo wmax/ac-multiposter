@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { Calendar, ArrowLeft, ArrowRight, ArrowLeftRight } from '@lucide/svelte';
 	import DashboardCard from '$lib/components/ui/DashboardCard.svelte';
+	import { toast } from '$lib/stores/toast.svelte';
 
 	let selectedProvider = $state<'google-calendar' | 'microsoft-calendar' | null>(null);
 	let providerId = $state('');
@@ -29,9 +30,13 @@
 		isSubmitting = true;
 		error = null;
 		const data = await create(input);
-		goto(`/synchronizations/${data.id}`);
+		
+		// Show success toast and navigate to list
+		toast.success('Calendar synchronization created successfully!');
+		goto('/synchronizations');
 	} catch (e: any) {
 		error = e.message;
+		toast.error(e.message || 'Failed to create synchronization');
 	} finally {
 		isSubmitting = false;
 	}

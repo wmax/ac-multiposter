@@ -6,6 +6,7 @@ import { eq, and } from 'drizzle-orm';
 import { listEvents } from '../list.remote';
 import { getEvent } from './view.remote';
 import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
+import { syncService } from '$lib/server/sync/service';
 
 /**
  * Schema for updating an event
@@ -53,6 +54,24 @@ export const updateEvent = command(updateEventSchema, async (data) => {
 	const user = getAuthenticatedUser();
 	ensureAccess(user, 'events');
 
+	// Validate date/time ranges
+	// For all-day events
+	if (data.startDate && data.endDate) {
+		if (data.endDate < data.startDate) {
+			throw new Error('End date must be the same as or after the start date');
+		}
+	}
+	
+	// For date-time events
+	if (data.startDateTime && data.endDateTime) {
+		const startDateTime = new Date(data.startDateTime);
+		const endDateTime = new Date(data.endDateTime);
+		
+		if (endDateTime <= startDateTime) {
+			throw new Error('End date and time must be after the start date and time');
+		}
+	}
+
 	// Build update object with only provided fields
 	const updateData: any = {};
 	
@@ -82,6 +101,11 @@ export const updateEvent = command(updateEventSchema, async (data) => {
 		.update(event)
 		.set(updateData)
 		.where(and(eq(event.id, data.id), eq(event.userId, user.id)));
+
+	// Trigger sync to external providers (non-blocking)
+	syncService.syncSpecificEvents(user.id, [data.id]).catch((error) => {
+		console.error('[updateEvent] Failed to sync event to providers:', error);
+	});
 
 	// Refresh both queries
 	await getEvent(data.id).refresh();

@@ -3,16 +3,19 @@
 	import { createEvent } from './create.remote';
 	import { listEvents } from '../list.remote';
 	import EventForm from '$lib/components/events/EventForm.svelte';
+	import { toast } from '$lib/stores/toast.svelte';
 
 	const createForm = createEvent;
 
 	async function handleCreate(data: any) {
 		try {
 			await createForm(data).updates(listEvents());
+			toast.success('Event created successfully!');
 			await goto('/events');
-		} catch (error) {
+		} catch (error: any) {
 			console.error('Failed to create event:', error);
-			alert('Failed to create event');
+			toast.error(error.message || 'Failed to create event');
+			throw error; // Re-throw so the form can handle it
 		}
 	}
 </script>

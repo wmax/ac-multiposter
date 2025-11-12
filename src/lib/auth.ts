@@ -28,6 +28,14 @@ export const auth = betterAuth({
         google: { 
             clientId: env.GOOGLE_CLIENT_ID || "",
             clientSecret: env.GOOGLE_CLIENT_SECRET || "",
+            scope: [
+                "openid",
+                "email",
+                "profile",
+                "https://www.googleapis.com/auth/calendar"
+            ],
+            accessType: "offline",
+            prompt: "consent"
         },
         microsoft: {
             clientId: env.MICROSOFT_CLIENT_ID || "",

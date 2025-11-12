@@ -21,7 +21,13 @@ export interface CreateSyncInput {
 const createSyncSchema = z.object({
 	providerType: z.enum(['google-calendar', 'microsoft-calendar']),
 	providerId: z.string(),
-	direction: z.enum(['pull', 'push', 'bidirectional'])
+	direction: z.enum(['pull', 'push', 'bidirectional']),
+	settings: z.optional(
+		z.object({
+			calendarId: z.optional(z.string()),
+			syncIntervalMinutes: z.optional(z.number())
+		})
+	)
 });
 
 /**

@@ -2,6 +2,7 @@
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import AuthHeader from '$lib/components/AuthHeader.svelte';
+	import Toast from '$lib/components/ui/Toast.svelte';
 	
 	let { children } = $props();
 </script>
@@ -17,6 +18,8 @@
 		{@render children()}
 	</div>
 </main>
+
+<Toast />
 
 
 <style>

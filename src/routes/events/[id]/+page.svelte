@@ -6,6 +6,7 @@
 	import { deleteEvents } from './delete.remote';
 	import type { Event } from '../list.remote';
     import EventForm from '$lib/components/events/EventForm.svelte';
+	import { toast } from '$lib/stores/toast.svelte';
 
 	// Shape expected by updateEvent command
 	type UpdateEventInput = {
@@ -101,9 +102,10 @@
 	async function handleUpdate() {
 		try {
 			await updateEvent({ id: eventId, ...editData });
+			toast.success('Event updated successfully!');
 			isEditing = false;
-		} catch (error) {
-			alert('Failed to update event');
+		} catch (error: any) {
+			toast.error(error.message || 'Failed to update event');
 		}
 	}
 
@@ -112,9 +114,10 @@
 		
 		try {
 			await deleteEvents([eventId]);
+			toast.success('Event deleted successfully!');
 			goto('/events');
-		} catch (error) {
-			alert('Failed to delete event');
+		} catch (error: any) {
+			toast.error(error.message || 'Failed to delete event');
 		}
 	}
 
@@ -201,6 +204,7 @@
 					submitLabel="Save Changes"
 					onSubmit={async (data) => {
 						await updateEvent({ id: eventId, ...data });
+						toast.success('Event updated successfully!');
 						isEditing = false;
 						goto(`/events/${eventId}`);
 					}}

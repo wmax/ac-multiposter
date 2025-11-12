@@ -290,9 +290,22 @@
 				<!-- Sync Result Messages -->
 				{#if syncError}
 					<div class="rounded-lg border border-red-200 bg-red-50 p-4">
-						<div class="flex items-center gap-2 text-red-600">
-							<AlertCircle class="h-5 w-5" />
-							<p>Sync failed: {syncError}</p>
+						<div class="flex items-start gap-3 text-red-600">
+							<AlertCircle class="h-5 w-5 flex-shrink-0 mt-0.5" />
+							<div class="flex-1">
+								<p class="font-semibold mb-1">Sync failed</p>
+								<p class="text-sm">{syncError}</p>
+								{#if syncError.includes('refresh token') || syncError.includes('re-authenticate')}
+									<div class="mt-3 pt-3 border-t border-red-200">
+										<p class="text-sm font-medium mb-2">How to fix this:</p>
+										<ol class="text-sm space-y-1 list-decimal list-inside">
+											<li>Delete this synchronization configuration</li>
+											<li>Sign out and sign back in to your Google account</li>
+											<li>Create a new synchronization - make sure to grant calendar access when prompted</li>
+										</ol>
+									</div>
+								{/if}
+							</div>
 						</div>
 					</div>
 				{/if}
@@ -325,38 +338,41 @@
 							{#each operations as operation}
 								{@const Icon = getStatusIcon(operation.status)}
 								{@const statusColor = getStatusColor(operation.status)}
-								<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-									<div class="flex items-center gap-3">
-										<Icon class="h-5 w-5 {statusColor}" />
-										<div>
-											<div class="font-medium">
-												{getOperationLabel(operation.operation)}
-												{operation.entityType}
-											</div>
-											<div class="text-xs text-gray-500">
-												{formatDate(operation.startedAt)}
-												{#if operation.completedAt}
-													→ {formatDate(operation.completedAt)}
-												{/if}
+								<div class="border rounded-lg {operation.status === 'failed' ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'}">
+									<div class="flex items-center justify-between p-3">
+										<div class="flex items-center gap-3">
+											<Icon class="h-5 w-5 {statusColor}" />
+											<div>
+												<div class="font-medium">
+													{getOperationLabel(operation.operation)}
+													{operation.entityType}
+												</div>
+												<div class="text-xs text-gray-500">
+													{formatDate(operation.startedAt)}
+													{#if operation.completedAt}
+														→ {formatDate(operation.completedAt)}
+													{/if}
+												</div>
 											</div>
 										</div>
-									</div>
-									<div class="text-sm">
-										<span class={`font-medium ${statusColor}`}>
-											{operation.status}
-										</span>
-										{#if operation.retryCount > 0}
-											<span class="text-gray-500 ml-2">
-												(retried {operation.retryCount}x)
+										<div class="text-sm">
+											<span class={`font-medium ${statusColor}`}>
+												{operation.status}
 											</span>
-										{/if}
+											{#if operation.retryCount > 0}
+												<span class="text-gray-500 ml-2">
+													(retried {operation.retryCount}x)
+												</span>
+											{/if}
+										</div>
 									</div>
+									{#if operation.error}
+										<div class="mx-3 mb-3 text-sm text-red-700 bg-red-100 p-3 rounded border border-red-200">
+											<div class="font-semibold mb-1">Error Details:</div>
+											<pre class="whitespace-pre-wrap font-mono text-xs">{operation.error}</pre>
+										</div>
+									{/if}
 								</div>
-								{#if operation.error}
-									<div class="ml-8 text-sm text-red-600 bg-red-50 p-2 rounded">
-										{operation.error}
-									</div>
-								{/if}
 							{/each}
 						</div>
 					{/if}

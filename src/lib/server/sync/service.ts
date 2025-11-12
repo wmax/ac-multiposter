@@ -15,7 +15,7 @@ import {
 	webhookSubscription as webhookSubscriptionTable,
 	event as eventTable
 } from '../db/schema';
-import { eq, and, isNull, lt } from 'drizzle-orm';
+import { eq, and, isNull, lt, inArray } from 'drizzle-orm';
 import { GoogleCalendarProvider } from './providers/google-calendar';
 import crypto from 'crypto';
 
@@ -80,6 +80,7 @@ export class SyncService {
 	 * Handles bidirectional sync (pull from provider, push local changes)
 	 */
 	async syncEvents(configId: string): Promise<SyncResult> {
+		console.log(`[SyncService] Starting sync for config: ${configId}`);
 		const result: SyncResult = {
 			success: true,
 			pulled: 0,
@@ -91,19 +92,31 @@ export class SyncService {
 
 		try {
 			// Get sync config
+			console.log(`[SyncService] Fetching sync config from database...`);
 			const [configRow] = await db
 				.select()
 				.from(syncConfigTable)
 				.where(and(eq(syncConfigTable.id, configId), eq(syncConfigTable.enabled, true)));
 
 			if (!configRow) {
+				console.error(`[SyncService] Sync config not found or disabled: ${configId}`);
 				throw new Error(`Sync config not found or disabled: ${configId}`);
 			}
 
 			const config = this.rowToConfig(configRow);
+			console.log(`[SyncService] Config loaded:`, {
+				id: config.id,
+				providerType: config.providerType,
+				direction: config.direction,
+				enabled: config.enabled,
+				lastSyncAt: config.lastSyncAt,
+				syncToken: config.syncToken ? 'present' : 'absent',
+				credentials: config.credentials ? 'present' : 'absent'
+			});
 
 			// Create operation record
 			operationId = crypto.randomUUID();
+			console.log(`[SyncService] Creating operation record: ${operationId}`);
 			await db.insert(syncOperationTable).values({
 				id: operationId,
 				syncConfigId: configId,
@@ -114,32 +127,41 @@ export class SyncService {
 			});
 
 			// Initialize provider
+			console.log(`[SyncService] Initializing provider: ${config.providerType}`);
 			const provider = await this.getProviderInstance(config);
+			console.log(`[SyncService] Provider initialized successfully`);
 
 			// Pull events from provider
 			if (config.direction === 'pull' || config.direction === 'bidirectional') {
+				console.log(`[SyncService] Starting pull operation...`);
 				const pullResult = await this.pullFromProvider(config, provider);
 				result.pulled = pullResult.pulled;
 				result.errors.push(...pullResult.errors);
+				console.log(`[SyncService] Pull completed: ${pullResult.pulled} events, ${pullResult.errors.length} errors`);
 			}
 
 			// Push local changes to provider
 			if (config.direction === 'push' || config.direction === 'bidirectional') {
+				console.log(`[SyncService] Starting push operation...`);
 				const pushResult = await this.pushToProvider(config, provider);
 				result.pushed = pushResult.pushed;
 				result.errors.push(...pushResult.errors);
+				console.log(`[SyncService] Push completed: ${pushResult.pushed} events, ${pushResult.errors.length} errors`);
 			}
 
 			// Update operation status
+			console.log(`[SyncService] Updating operation status...`);
 			await db
 				.update(syncOperationTable)
 				.set({
 					status: result.errors.length > 0 ? 'failed' : 'completed',
-					completedAt: new Date()
+					completedAt: new Date(),
+					error: result.errors.length > 0 ? JSON.stringify(result.errors) : null
 				})
 				.where(eq(syncOperationTable.id, operationId));
 
 			// Update sync config with last sync time
+			console.log(`[SyncService] Updating sync config...`);
 			await db
 				.update(syncConfigTable)
 				.set({
@@ -149,19 +171,23 @@ export class SyncService {
 				.where(eq(syncConfigTable.id, configId));
 
 			result.success = result.errors.length === 0;
+			console.log(`[SyncService] Sync completed successfully:`, result);
 			return result;
 		} catch (error: any) {
+			console.error(`[SyncService] Sync failed with error:`, error);
+			console.error(`[SyncService] Error stack:`, error.stack);
 			result.success = false;
 			result.errors.push({ message: error.message });
 
 			// Update operation as failed if we created one
 			if (operationId) {
+				console.log(`[SyncService] Marking operation as failed: ${operationId}`);
 				await db
 					.update(syncOperationTable)
 					.set({
 						status: 'failed',
 						completedAt: new Date(),
-						error: error.message
+						error: `${error.message}\n\nStack:\n${error.stack}`
 					})
 					.where(eq(syncOperationTable.id, operationId));
 			}
@@ -180,14 +206,21 @@ export class SyncService {
 		const result = { pulled: 0, errors: [] as SyncResult['errors'] };
 
 		try {
+			console.log(`[SyncService] Pulling events from provider, syncToken: ${config.syncToken ? 'present' : 'absent'}`);
+			
 			// Pull events using sync token if available
 			const { events, nextSyncToken } = await provider.pullEvents(config.syncToken);
+			
+			console.log(`[SyncService] Received ${events.length} events from provider`);
+			console.log(`[SyncService] Next sync token: ${nextSyncToken ? 'present' : 'absent'}`);
 
 			for (const externalEvent of events) {
 				try {
+					console.log(`[SyncService] Processing event: ${externalEvent.externalId} - ${externalEvent.summary}`);
 					await this.processExternalEvent(config, externalEvent);
 					result.pulled++;
 				} catch (error: any) {
+					console.error(`[SyncService] Failed to process event ${externalEvent.externalId}:`, error);
 					result.errors.push({
 						externalId: externalEvent.externalId,
 						message: `Failed to process event ${externalEvent.externalId}: ${error.message}`
@@ -197,13 +230,23 @@ export class SyncService {
 
 			// Store new sync token for incremental syncs
 			if (nextSyncToken) {
+				console.log(`[SyncService] Storing new sync token`);
 				await db
 					.update(syncConfigTable)
 					.set({ syncToken: nextSyncToken })
 					.where(eq(syncConfigTable.id, config.id));
 			}
 		} catch (error: any) {
-			result.errors.push({ message: `Pull failed: ${error.message}` });
+			console.error(`[SyncService] Pull operation failed:`, error);
+			console.error(`[SyncService] Error details:`, {
+				message: error.message,
+				code: error.code,
+				status: error.status,
+				stack: error.stack
+			});
+			result.errors.push({ 
+				message: `Pull failed: ${error.message}${error.code ? ` (code: ${error.code})` : ''}${error.status ? ` (status: ${error.status})` : ''}`
+			});
 		}
 
 		return result;
@@ -502,6 +545,197 @@ export class SyncService {
 		const intervalMinutes = (config.settings?.syncIntervalMinutes as number) || 60;
 		now.setMinutes(now.getMinutes() + intervalMinutes);
 		return now;
+	}
+
+	/**
+	 * Sync specific events to all configured bidirectional or push sync providers
+	 * Used after create/update/delete operations to immediately push changes
+	 */
+	async syncSpecificEvents(userId: string, eventIds: string[]): Promise<void> {
+		console.log(`[SyncService] Syncing specific events for user ${userId}:`, eventIds);
+
+		try {
+			// Get all enabled sync configs for this user that support push
+			const configs = await db
+				.select()
+				.from(syncConfigTable)
+				.where(
+					and(
+						eq(syncConfigTable.userId, userId),
+						eq(syncConfigTable.enabled, true)
+					)
+				);
+
+			const pushConfigs = configs.filter(
+				(c) => c.direction === 'push' || c.direction === 'bidirectional'
+			);
+
+			if (pushConfigs.length === 0) {
+				console.log(`[SyncService] No push-enabled sync configs found for user ${userId}`);
+				return;
+			}
+
+			console.log(`[SyncService] Found ${pushConfigs.length} push-enabled sync configs`);
+
+			for (const configRow of pushConfigs) {
+				const config = this.rowToConfig(configRow);
+				console.log(`[SyncService] Processing sync config: ${config.id} (${config.providerType})`);
+
+				try {
+					const provider = await this.getProviderInstance(config);
+
+					for (const eventId of eventIds) {
+						await this.syncSingleEvent(config, provider, eventId);
+					}
+				} catch (error: any) {
+					console.error(`[SyncService] Failed to sync with config ${config.id}:`, error);
+					// Continue with other configs even if one fails
+				}
+			}
+
+			console.log(`[SyncService] Completed syncing specific events`);
+		} catch (error: any) {
+			console.error(`[SyncService] Error in syncSpecificEvents:`, error);
+			// Don't throw - sync failures shouldn't break CRUD operations
+		}
+	}
+
+	/**
+	 * Sync a single event to a provider (create, update, or delete)
+	 */
+	private async syncSingleEvent(
+		config: SyncConfig,
+		provider: SyncProvider,
+		eventId: string
+	): Promise<void> {
+		console.log(`[SyncService] Syncing event ${eventId} with config ${config.id}`);
+
+		try {
+			// Check if event exists
+			const [eventRow] = await db
+				.select()
+				.from(eventTable)
+				.where(and(eq(eventTable.id, eventId), eq(eventTable.userId, config.userId)));
+
+			// Check for existing mapping
+			const [mapping] = await db
+				.select()
+				.from(syncMappingTable)
+				.where(
+					and(
+						eq(syncMappingTable.eventId, eventId),
+						eq(syncMappingTable.syncConfigId, config.id)
+					)
+				);
+
+			if (!eventRow) {
+				// Event was deleted
+				if (mapping) {
+					console.log(`[SyncService] Deleting event ${eventId} from provider`);
+					await provider.deleteEvent(mapping.externalId);
+					await db.delete(syncMappingTable).where(eq(syncMappingTable.id, mapping.id));
+				}
+				return;
+			}
+
+			if (mapping) {
+				// Update existing event
+				console.log(`[SyncService] Updating event ${eventId} on provider (external ID: ${mapping.externalId})`);
+				const externalEvent = this.mapInternalToExternal(eventRow, config.providerType);
+				const { etag } = await provider.updateEvent(mapping.externalId, externalEvent);
+
+				await db
+					.update(syncMappingTable)
+					.set({ etag: etag ?? null, lastSyncedAt: new Date() })
+					.where(eq(syncMappingTable.id, mapping.id));
+			} else {
+				// Create new event
+				console.log(`[SyncService] Creating new event ${eventId} on provider`);
+				const externalEvent = this.mapInternalToExternal(eventRow, config.providerType);
+				const { externalId, etag } = await provider.pushEvent(externalEvent);
+
+				await db.insert(syncMappingTable).values({
+					id: crypto.randomUUID(),
+					syncConfigId: config.id,
+					eventId: eventRow.id,
+					externalId: externalId,
+					providerId: config.providerId,
+					etag: etag ?? null,
+					lastSyncedAt: new Date()
+				});
+			}
+
+			console.log(`[SyncService] Successfully synced event ${eventId}`);
+		} catch (error: any) {
+			console.error(`[SyncService] Failed to sync event ${eventId}:`, error);
+			// Log but don't throw - we want to continue with other events
+		}
+	}
+
+	/**
+	 * Delete event mappings for specific events (called after event deletion)
+	 */
+	async deleteEventMappings(userId: string, eventIds: string[]): Promise<void> {
+		console.log(`[SyncService] Deleting event mappings for user ${userId}:`, eventIds);
+
+		try {
+			// Get all sync configs for this user
+			const configs = await db
+				.select()
+				.from(syncConfigTable)
+				.where(eq(syncConfigTable.userId, userId));
+
+			for (const configRow of configs) {
+				const config = this.rowToConfig(configRow);
+
+				// Get mappings for these events
+				const mappings = await db
+					.select()
+					.from(syncMappingTable)
+					.where(
+						and(
+							eq(syncMappingTable.syncConfigId, config.id),
+							inArray(syncMappingTable.eventId, eventIds)
+						)
+					);
+
+				if (mappings.length === 0) continue;
+
+				// Try to delete from provider if it supports push/bidirectional
+				if (config.direction === 'push' || config.direction === 'bidirectional') {
+					try {
+						const provider = await this.getProviderInstance(config);
+
+						for (const mapping of mappings) {
+							try {
+								console.log(`[SyncService] Deleting event from provider: ${mapping.externalId}`);
+								await provider.deleteEvent(mapping.externalId);
+							} catch (error: any) {
+								console.error(`[SyncService] Failed to delete event ${mapping.externalId} from provider:`, error);
+								// Continue with other events
+							}
+						}
+					} catch (error: any) {
+						console.error(`[SyncService] Failed to initialize provider for deletion:`, error);
+					}
+				}
+
+				// Delete the mappings from our database
+				await db
+					.delete(syncMappingTable)
+					.where(
+						and(
+							eq(syncMappingTable.syncConfigId, config.id),
+							inArray(syncMappingTable.eventId, eventIds)
+						)
+					);
+			}
+
+			console.log(`[SyncService] Completed deleting event mappings`);
+		} catch (error: any) {
+			console.error(`[SyncService] Error in deleteEventMappings:`, error);
+			// Don't throw - sync failures shouldn't break delete operations
+		}
 	}
 }
 
