@@ -1,11 +1,13 @@
 import { defineConfig } from 'drizzle-kit';
 
-if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
+// DATABASE_URL is only needed for drizzle-kit commands (migrate, push, studio)
+// Not required during build - Cloudflare Pages only has runtime env vars
+const databaseUrl = process.env.DATABASE_URL || 'postgresql://placeholder';
 
 export default defineConfig({
 	schema: './src/lib/server/db/schema.ts',
 	dialect: 'postgresql',
-	dbCredentials: { url: process.env.DATABASE_URL },
+	dbCredentials: { url: databaseUrl },
 	verbose: true,
 	strict: true
 });

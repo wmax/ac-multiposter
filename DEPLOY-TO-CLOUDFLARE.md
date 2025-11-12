@@ -384,13 +384,25 @@ Then re-run the build (`pnpm build`) and redeploy.
 
 ### Database Connection Errors
 
-**Problem:** "DATABASE_URL is not set" or connection timeout
+**Problem:** Build fails with "DATABASE_URL is not set" even though it's configured in Cloudflare Pages
 
-**Solutions:**
-- Verify `DATABASE_URL` is set correctly in environment variables
-- Ensure the database allows connections from Cloudflare IPs
+**Root Cause:** Environment variables set in Cloudflare Pages "Variables and Secrets" are only available at **runtime**, not during the **build phase**. If your code tries to access env vars during build, it will fail.
+
+**Solution:** The `drizzle.config.ts` file has been updated to use a placeholder during build:
+
+```typescript
+// DATABASE_URL is only needed for drizzle-kit commands (migrate, push, studio)
+// Not required during build - Cloudflare Pages only has runtime env vars
+const databaseUrl = process.env.DATABASE_URL || 'postgresql://placeholder';
+```
+
+This allows the build to complete. The actual `DATABASE_URL` from Cloudflare Pages environment variables will be used at runtime.
+
+**Other database connection issues:**
+- Verify `DATABASE_URL` is set correctly in Cloudflare Pages environment variables
+- Ensure the database allows connections from Cloudflare IPs (most providers allow all IPs by default)
 - For Neon/Supabase, use connection pooling URL if available
-- Check if your database requires SSL (most do)
+- Check if your database requires SSL (most do - this is handled automatically)
 
 ### OAuth Redirect Errors
 
