@@ -386,17 +386,39 @@ Then re-run the build (`pnpm build`) and redeploy.
 
 **Problem:** Build fails with "DATABASE_URL is not set" even though it's configured in Cloudflare Pages
 
-**Root Cause:** Environment variables set in Cloudflare Pages "Variables and Secrets" are only available at **runtime**, not during the **build phase**. If your code tries to access env vars during build, it will fail.
+**Root Cause:** Environment variables set in Cloudflare Pages "Variables and Secrets" are only available at **runtime**, not during the **build phase**. If your code tries to access env vars at the module top-level during build, it will fail.
 
-**Solution:** The `drizzle.config.ts` file has been updated to use a placeholder during build:
+**Solution:** The database connection has been updated to use **lazy initialization**:
 
 ```typescript
-// DATABASE_URL is only needed for drizzle-kit commands (migrate, push, studio)
-// Not required during build - Cloudflare Pages only has runtime env vars
-const databaseUrl = process.env.DATABASE_URL || 'postgresql://placeholder';
+// src/lib/server/db/index.ts
+// Lazy initialization - only create connection when db is actually accessed
+let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
+
+function getDb() {
+	if (!_db) {
+		if (!env.DATABASE_URL) {
+			throw new Error('DATABASE_URL is not set');
+		}
+		const client = postgres(env.DATABASE_URL);
+		_db = drizzle(client, { schema });
+	}
+	return _db;
+}
+
+// Export a Proxy that lazily initializes the connection
+export const db = new Proxy({} as ReturnType<typeof drizzle<typeof schema>>, {
+	get(target, prop) {
+		return getDb()[prop as keyof ReturnType<typeof drizzle<typeof schema>>];
+	}
+});
 ```
 
-This allows the build to complete. The actual `DATABASE_URL` from Cloudflare Pages environment variables will be used at runtime.
+This pattern:
+1. **During build**: The `db` export is created but doesn't access `DATABASE_URL` yet
+2. **At runtime**: When you first use `db.query...`, it initializes the connection with the actual environment variable
+
+The `drizzle.config.ts` also uses a placeholder during build since it's only needed for CLI commands (`pnpm db:migrate`, etc.), not for building the app.
 
 **Other database connection issues:**
 - Verify `DATABASE_URL` is set correctly in Cloudflare Pages environment variables
