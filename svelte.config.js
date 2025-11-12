@@ -8,7 +8,14 @@ const config = {
 	preprocess: vitePreprocess(),
 	kit: {
 		// Using Cloudflare Pages adapter for deployment
-		adapter: adapter(),
+		adapter: adapter({
+			// Path to wrangler configuration file
+			config: 'wrangler.jsonc',
+			// Enable platform emulation during dev/preview
+			platformProxy: {
+				persist: true
+			}
+		}),
 		experimental: {
 			remoteFunctions: true
 		},

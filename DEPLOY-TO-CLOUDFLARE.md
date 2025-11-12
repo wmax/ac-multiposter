@@ -48,7 +48,48 @@ Follow their documentation to create a Postgres database and obtain the connecti
 
 ## 2. Cloudflare Pages Setup
 
-### Step 1: Connect Your Repository
+### Step 1: Create Wrangler Configuration
+
+Before connecting to Cloudflare, create a `wrangler.jsonc` file in your project root:
+
+```jsonc
+{
+	// Cloudflare Pages configuration for AC Multiposter
+	"name": "ac-multiposter",
+	
+	// Enable Node.js compatibility for googleapis, better-auth, and other Node.js libraries
+	"compatibility_flags": ["nodejs_compat"],
+	
+	// Compatibility date (use latest stable)
+	"compatibility_date": "2025-01-01"
+}
+```
+
+> **Important:** The `nodejs_compat` flag is required because this project uses:
+> - `googleapis` (Google Calendar API)
+> - `better-auth` (authentication)
+> - `pg` and `postgres` (database clients)
+> - Other libraries that depend on Node.js built-in modules (`crypto`, `http`, `stream`, etc.)
+
+Without this flag, the build will fail with errors like "Could not resolve 'crypto'" or "Could not resolve 'http'".
+
+**SvelteKit Configuration:** The adapter is configured in `svelte.config.js` to reference this file:
+
+```js
+adapter: adapter({
+	config: 'wrangler.jsonc',
+	platformProxy: {
+		persist: true
+	}
+})
+```
+
+This enables:
+- Cloudflare platform emulation during local development
+- Proper wrangler configuration detection during build
+- Access to `platform.env` bindings in dev mode
+
+### Step 2: Connect Your Repository
 
 1. Log in to [Cloudflare Dashboard](https://dash.cloudflare.com)
 2. Go to **Workers & Pages** → **Create application**
@@ -64,14 +105,16 @@ On the setup page, configure:
 
 - **Production branch**: `main` (or your default branch)
 - **Framework preset**: Select "SvelteKit"
-- **Build command**: `pnpm build`
+- **Build command**: `pnpm build` (per SvelteKit docs, this runs `vite build`)
 - **Build output directory**: `.svelte-kit/cloudflare`
 
-**Important Build Settings:**
+**Important Build Settings (from latest SvelteKit docs):**
 
-- **Node.js version**: Set to `20` or higher
-  - In **Build settings** → **Environment variables (advanced)**
-  - Add: `NODE_VERSION` = `20`
+- You can use either `npm run build` or `vite build` (we use `pnpm build` which calls `vite build`).
+- The output directory must be `.svelte-kit/cloudflare`.
+- The Framework preset should be "SvelteKit" so Pages recognizes the project.
+- Optional: Set `NODE_VERSION=20` in build env vars if your dependencies require it.
+- **The `wrangler.jsonc` file enables Node.js compatibility automatically** - no additional build configuration needed.
 
 Click **Save and Deploy** (it will fail initially - that's okay, we need to add environment variables first)
 
@@ -231,6 +274,21 @@ Schedule: Daily (0 0 * * * in cron syntax)
 
 ## 7. Testing Your Deployment
 
+### Local testing with Wrangler (optional)
+
+After running a build, you can emulate Cloudflare locally:
+
+- For Cloudflare Pages:
+  ```powershell
+  wrangler pages dev .svelte-kit/cloudflare
+  ```
+- For Cloudflare Workers:
+  ```powershell
+  wrangler dev .svelte-kit/cloudflare
+  ```
+
+This uses the generated worker output and helps validate routing and runtime behaviour before deploying.
+
 ### Step 1: Trigger a Deployment
 
 After adding all environment variables:
@@ -270,6 +328,31 @@ After your first sign-in, you need to grant admin access:
 ---
 
 ## 8. Troubleshooting
+
+### "Could not resolve" Node.js modules (crypto, http, etc.)
+
+**Problem:** Build fails with 66+ errors like:
+- `Could not resolve "http"`
+- `Could not resolve "crypto"`
+- `Could not resolve "stream"`
+- "The package 'crypto' wasn't found on the file system but is built into node."
+
+**Solution:** Create a `wrangler.jsonc` file in your project root (already included in this repo):
+
+```jsonc
+{
+	"name": "ac-multiposter",
+	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_date": "2025-01-01"
+}
+```
+
+The `nodejs_compat` flag enables Node.js built-in modules in Cloudflare Workers. This is required for:
+- `googleapis` (Google Calendar API)
+- `better-auth` (authentication library)
+- `pg` and `postgres` (database clients)
+
+After adding the file, commit and push to trigger a new deployment.
 
 ### "No adapter specified" during build
 
