@@ -6,21 +6,21 @@ const config = {
 	// Consult https://svelte.dev/docs/kit/integrations
 	// for more information about preprocessors
 	preprocess: vitePreprocess(),
-	kit: { 
-			experimental: { 
-				remoteFunctions: true 
-			},
-			alias: {
-      			"@/*": "./lib/*"
-			}
+	kit: {
+		// Using Cloudflare Pages adapter for deployment
+		adapter: adapter(),
+		experimental: {
+			remoteFunctions: true
+		},
+		alias: {
+			"@/*": "./lib/*"
+		}
 	},
 	compilerOptions: {
 		experimental: {
 			async: true
 		}
-	},
-	// Using Cloudflare Pages adapter for deployment
-	adapter: adapter()
+	}
 };
 
 export default config;

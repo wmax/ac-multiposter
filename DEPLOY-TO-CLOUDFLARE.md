@@ -271,6 +271,28 @@ After your first sign-in, you need to grant admin access:
 
 ## 8. Troubleshooting
 
+### "No adapter specified" during build
+
+**Problem:** Build fails with:
+- `No adapter specified`
+- `Output directory ".svelte-kit/cloudflare" not found.`
+
+**Solution:** Ensure the Cloudflare adapter is configured inside the `kit` block in `svelte.config.js`:
+
+```js
+import adapter from '@sveltejs/adapter-cloudflare'
+
+/** @type {import('@sveltejs/kit').Config} */
+const config = {
+  kit: {
+    adapter: adapter()
+  }
+}
+export default config
+```
+
+Then re-run the build (`pnpm build`) and redeploy.
+
 ### Build Fails with Node.js Version Error
 
 **Problem:** "Error: The engine "node" is incompatible with this module"
