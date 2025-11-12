@@ -209,63 +209,84 @@ Most database providers (Neon, Supabase, Railway) provide a SQL editor. Copy and
 
 ## 6. Cloudflare Cron Jobs (Webhook Renewal)
 
-Google Calendar webhooks expire after ~7 days and need renewal. Set up a Cloudflare Cron Trigger:
+Google Calendar webhooks expire after ~7 days and need renewal. **Cloudflare Pages does NOT support cron triggers directly** - you must create a separate Worker with a cron trigger.
 
-### Step 1: Create Worker for Cron
+### Option A: Use Cloudflare Workers (Recommended)
 
-1. In Cloudflare Dashboard, go to **Workers & Pages**
-2. Click your Pages project
-3. Go to **Settings** → **Functions**
-4. Click **Add Cron Trigger**
+Create a Cloudflare Worker with a scheduled event handler:
 
-### Step 2: Configure Cron Job
+#### Step 1: Create a new Worker
 
-Unfortunately, Cloudflare Pages doesn't directly support cron triggers. You have two options:
+1. In Cloudflare Dashboard, go to **Workers & Pages** → **Create application**
+2. Select **Create Worker**
+3. Name it `ac-multiposter-cron` (or similar)
+4. Click **Deploy**
 
-#### Option A: Use Cloudflare Workers (Recommended)
+#### Step 2: Edit Worker Code
 
-Create a simple Cloudflare Worker to call your webhook renewal endpoint:
-
-1. Create a new Worker in **Workers & Pages** → **Create application** → **Create Worker**
-2. Name it something like `ac-multiposter-cron`
-3. Replace the worker code with:
+1. Click **Edit Code**
+2. Replace the default code with:
 
 ```javascript
 export default {
   async scheduled(event, env, ctx) {
-    const response = await fetch('https://ac-multiposter.pages.dev/api/sync/renew-webhooks', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${env.CRON_SECRET}`
+    try {
+      const response = await fetch('https://ac-multiposter.pages.dev/api/sync/renew-webhooks', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.CRON_SECRET}`
+        }
+      });
+      
+      console.log('Webhook renewal response:', response.status);
+      
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Webhook renewal failed:', text);
       }
-    });
-    
-    console.log('Webhook renewal response:', response.status);
+    } catch (error) {
+      console.error('Webhook renewal error:', error);
+    }
   },
 };
 ```
 
-4. Go to **Settings** → **Variables and Secrets**
-5. Add environment variable: `CRON_SECRET` (same value as in your Pages project)
-6. Go to **Triggers** → **Cron Triggers**
-7. Click **Add Cron Trigger**
-8. Set schedule: `0 0 * * *` (daily at midnight UTC)
-9. Click **Save**
+3. Click **Save and Deploy**
 
-#### Option B: Use External Cron Service
+#### Step 3: Add Environment Variable
 
-Use a service like:
-- [cron-job.org](https://cron-job.org)
-- [EasyCron](https://www.easycron.com)
-- GitHub Actions
+1. Go to **Settings** → **Variables**
+2. Under **Environment Variables**, click **Add variable**
+3. Name: `CRON_SECRET`
+4. Value: Same value as `CRON_SECRET` in your Pages project
+5. Click **Deploy**
 
-Configure it to call:
+#### Step 4: Configure Cron Trigger
+
+1. Go to **Triggers** tab
+2. Scroll down to **Cron Triggers**
+3. Click **Add Cron Trigger**
+4. Enter schedule: `0 0 * * *` (runs daily at midnight UTC)
+5. Click **Add Trigger**
+
+The cron trigger will now call your Pages webhook renewal endpoint daily.
+
+**Note:** Changes to cron triggers may take up to 15 minutes to propagate.
+
+### Option B: Use External Cron Service
+
+If you prefer not to use a Worker, use an external service like:
+- [cron-job.org](https://cron-job.org) (free)
+- [EasyCron](https://www.easycron.com) (free tier available)
+- GitHub Actions (if your repo is on GitHub)
+
+Configure it to make a POST request:
 ```bash
 curl -X POST https://ac-multiposter.pages.dev/api/sync/renew-webhooks \
   -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
 
-Schedule: Daily (0 0 * * * in cron syntax)
+Schedule: Daily (cron expression: `0 0 * * *`)
 
 ---
 
