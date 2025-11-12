@@ -6,8 +6,7 @@ import type {
 	ProviderType,
 	SyncDirection
 } from '../types';
-import { google } from 'googleapis';
-import type { calendar_v3 } from 'googleapis';
+import { calendar, type calendar_v3 } from '@googleapis/calendar';
 import { env } from '$env/dynamic/private';
 
 /**
@@ -79,20 +78,21 @@ export class GoogleCalendarProvider implements SyncProvider {
 			isExpired: credentials.expiresAt ? Date.now() >= credentials.expiresAt : 'unknown'
 		});
 
-		const oauth2Client = new google.auth.OAuth2(
+		// Initialize OAuth2 client
+		const auth = new calendar.auth.OAuth2(
 			clientId,
 			clientSecret,
 			`${authUrl}/api/auth/callback/google`
 		);
 
-		oauth2Client.setCredentials({
+		auth.setCredentials({
 			access_token: credentials.accessToken,
 			refresh_token: credentials.refreshToken,
 			expiry_date: credentials.expiresAt
 		});
 
 		// Set up token refresh callback to update stored credentials
-		oauth2Client.on('tokens', async (tokens) => {
+		auth.on('tokens', async (tokens) => {
 			console.log(`[GoogleCalendarProvider] Token refreshed automatically`);
 			if (tokens.access_token && this.config) {
 				// Update the stored credentials with the new access token
@@ -109,7 +109,7 @@ export class GoogleCalendarProvider implements SyncProvider {
 			}
 		});
 
-		this.calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+		this.calendar = calendar({ version: 'v3', auth });
 		console.log(`[GoogleCalendarProvider] Provider initialized successfully`);
 	}
 
