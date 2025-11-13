@@ -226,9 +226,10 @@ This runs daily at midnight UTC.
 
 ### How It Works
 
-1. Vercel automatically calls `/api/sync/renew-webhooks` daily
-2. The endpoint checks for the `CRON_SECRET` header for security
-3. Vercel includes this header automatically for cron requests
+1. Vercel automatically calls `/api/sync/renew-webhooks` daily with a GET request
+2. Vercel adds the header `x-vercel-cron: 1` on these requests
+3. For security, set a `CRON_SECRET` and pass it as a query parameter: `/api/sync/renew-webhooks?token=YOUR_CRON_SECRET`
+  - Alternatively, you can use an `Authorization: Bearer <CRON_SECRET>` header when triggering manually
 4. The endpoint renews all webhooks that are about to expire
 
 ### Verify Cron Setup
@@ -243,7 +244,11 @@ After deployment:
 You can manually trigger the webhook renewal:
 
 ```powershell
-curl -X POST https://your-project.vercel.app/api/sync/renew-webhooks `
+# Using GET with query token (works anywhere)
+curl "https://your-project.vercel.app/api/sync/renew-webhooks?token=YOUR_CRON_SECRET"
+
+# Or using POST with Authorization header
+curl -X POST "https://your-project.vercel.app/api/sync/renew-webhooks" `
   -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
 

@@ -7,6 +7,7 @@ import type {
 	SyncDirection
 } from '../types';
 import { calendar, type calendar_v3 } from '@googleapis/calendar';
+import { OAuth2Client, type Credentials } from 'google-auth-library';
 import { env } from '$env/dynamic/private';
 
 /**
@@ -79,7 +80,7 @@ export class GoogleCalendarProvider implements SyncProvider {
 		});
 
 		// Initialize OAuth2 client
-		const auth = new calendar.auth.OAuth2(
+		const auth = new OAuth2Client(
 			clientId,
 			clientSecret,
 			`${authUrl}/api/auth/callback/google`
@@ -92,7 +93,7 @@ export class GoogleCalendarProvider implements SyncProvider {
 		});
 
 		// Set up token refresh callback to update stored credentials
-		auth.on('tokens', async (tokens) => {
+		auth.on('tokens', async (tokens: Credentials) => {
 			console.log(`[GoogleCalendarProvider] Token refreshed automatically`);
 			if (tokens.access_token && this.config) {
 				// Update the stored credentials with the new access token
@@ -109,7 +110,9 @@ export class GoogleCalendarProvider implements SyncProvider {
 			}
 		});
 
-		this.calendar = calendar({ version: 'v3', auth });
+		// Type mismatch can occur due to differing versions of google-auth-library in transitive deps
+		// Casting to any here is acceptable as the client supports OAuth2Client instances
+		this.calendar = calendar({ version: 'v3', auth: auth as any });
 		console.log(`[GoogleCalendarProvider] Provider initialized successfully`);
 	}
 
