@@ -341,18 +341,16 @@ After your first sign-in, grant yourself admin access:
 **Problem:** "Function exceeded maximum duration"
 
 **Solutions:**
-- Increase timeout in `vercel.json`:
-  ```json
-  {
-    "functions": {
-      "api/**/*.ts": {
-        "maxDuration": 60
-      }
-    }
-  }
-  ```
+- The default timeout is configured in `svelte.config.js` (currently 30 seconds)
 - Free tier: Max 10 seconds per function
 - Pro tier: Max 60 seconds per function
+- To change timeout, edit `svelte.config.js`:
+  ```javascript
+  adapter: adapter({
+    runtime: 'nodejs20.x',
+    maxDuration: 30  // Change this value
+  })
+  ```
 - Optimize slow database queries
 - Consider breaking long operations into smaller chunks
 

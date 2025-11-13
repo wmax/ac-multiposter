@@ -5,11 +5,6 @@
       "schedule": "0 0 * * *"
     }
   ],
-  "functions": {
-    "src/routes/api/**/*.ts": {
-      "maxDuration": 30
-    }
-  },
   "headers": [
     {
       "source": "/api/(.*)",

@@ -12,7 +12,9 @@ const config = {
 			// Vercel configuration
 			runtime: 'nodejs20.x',
 			// Split API routes from pages for better performance
-			split: false
+			split: false,
+			// Set maxDuration for all functions (free tier: 10s, pro: 60s)
+			maxDuration: 30
 		}),
 		experimental: {
 			remoteFunctions: true
