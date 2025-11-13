@@ -112,14 +112,7 @@ export class GoogleCalendarProvider implements SyncProvider {
 
 		// Type mismatch can occur due to differing versions of google-auth-library in transitive deps
 		// Casting to any here is acceptable as the client supports OAuth2Client instances
-		// Add API key at client level to identify the project for quota/billing purposes
-		const clientOptions: any = { version: 'v3', auth: auth as any };
-		const apiKey = env.GOOGLE_API_KEY;
-		if (apiKey) {
-			console.log(`[GoogleCalendarProvider] Adding API key to client configuration`);
-			clientOptions.key = apiKey;
-		}
-		this.calendar = calendar(clientOptions);
+		this.calendar = calendar({ version: 'v3', auth: auth as any });
 		console.log(`[GoogleCalendarProvider] Provider initialized successfully`);
 	}
 
