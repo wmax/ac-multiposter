@@ -112,7 +112,14 @@ export class GoogleCalendarProvider implements SyncProvider {
 
 		// Type mismatch can occur due to differing versions of google-auth-library in transitive deps
 		// Casting to any here is acceptable as the client supports OAuth2Client instances
-		this.calendar = calendar({ version: 'v3', auth: auth as any });
+		// Add API key at client level to identify the project for quota/billing purposes
+		const clientOptions: any = { version: 'v3', auth: auth as any };
+		const apiKey = env.GOOGLE_API_KEY;
+		if (apiKey) {
+			console.log(`[GoogleCalendarProvider] Adding API key to client configuration`);
+			clientOptions.key = apiKey;
+		}
+		this.calendar = calendar(clientOptions);
 		console.log(`[GoogleCalendarProvider] Provider initialized successfully`);
 	}
 
@@ -278,10 +285,9 @@ export class GoogleCalendarProvider implements SyncProvider {
 		const channelId = crypto.randomUUID();
 		const resourceId = crypto.randomUUID();
 
-		// Optionally include API key to associate the request with the GCP project
-		// Some Google APIs require a project identity in addition to OAuth tokens
-		const apiKey = env.GOOGLE_API_KEY;
-		const watchParams: any = {
+		// OAuth2 credentials are sufficient for the Calendar API - no API key needed
+		// Adding an API key can interfere with OAuth2 authentication
+		const response = await this.calendar.events.watch({
 			calendarId: this.calendarId,
 			requestBody: {
 				id: channelId,
@@ -289,10 +295,7 @@ export class GoogleCalendarProvider implements SyncProvider {
 				address: callbackUrl,
 				token: this.config.id // Use config ID as verification token
 			}
-		};
-		if (apiKey) watchParams.key = apiKey;
-
-		const response = await this.calendar.events.watch(watchParams);
+		});
 
 		const expiresAt = new Date(parseInt(response.data.expiration || '0'));
 
