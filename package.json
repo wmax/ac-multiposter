@@ -9,6 +9,7 @@
 		"pnpm": ">=9.0.0"
 	},
 	"scripts": {
+		"vercel-build": "pnpm build",
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",

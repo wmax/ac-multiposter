@@ -1,4 +1,6 @@
 {
+  "installCommand": "corepack enable && pnpm install",
+  "buildCommand": "pnpm build",
   "crons": [
     {
       "path": "/api/sync/renew-webhooks",
