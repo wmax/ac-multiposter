@@ -1,4 +1,4 @@
-import adapter from '@sveltejs/adapter-cloudflare';
+import adapter from '@sveltejs/adapter-vercel';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 /** @type {import('@sveltejs/kit').Config} */
@@ -7,14 +7,12 @@ const config = {
 	// for more information about preprocessors
 	preprocess: vitePreprocess(),
 	kit: {
-		// Using Cloudflare Pages adapter for deployment
+		// Using Vercel adapter for deployment
 		adapter: adapter({
-			// Path to wrangler configuration file (for Pages)
-			config: 'wrangler.json',
-			// Enable platform emulation during dev/preview
-			platformProxy: {
-				persist: true
-			}
+			// Vercel configuration
+			runtime: 'nodejs20.x',
+			// Split API routes from pages for better performance
+			split: false
 		}),
 		experimental: {
 			remoteFunctions: true

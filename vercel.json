@@ -4,5 +4,24 @@
       "path": "/api/sync/renew-webhooks",
       "schedule": "0 0 * * *"
     }
+  ],
+  "functions": {
+    "api/**/*.ts": {
+      "maxDuration": 30
+    },
+    "src/routes/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    }
   ]
 }
