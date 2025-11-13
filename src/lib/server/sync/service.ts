@@ -336,6 +336,7 @@ export class SyncService {
 	 * Process an external event from a provider (create or update local event)
 	 */
 	private async processExternalEvent(config: SyncConfig, externalEvent: ExternalEvent): Promise<void> {
+		// First, check if we have a mapping for this external event
 		const [mapping] = await db
 			.select()
 			.from(syncMappingTable)
@@ -348,6 +349,30 @@ export class SyncService {
 
 		if (mapping) {
 			// Update existing event
+			console.log(`[SyncService] Updating existing local event ${mapping.eventId} from external ${externalEvent.externalId}`);
+			
+			// Get current event to check timestamps
+			const [currentEvent] = await db
+				.select()
+				.from(eventTable)
+				.where(eq(eventTable.id, mapping.eventId));
+			
+			if (currentEvent) {
+				// Skip update if we just modified it locally (within last 30 seconds)
+				// This prevents echo loops in bidirectional sync
+				const timeSinceUpdate = Date.now() - currentEvent.updatedAt.getTime();
+				if (timeSinceUpdate < 30000) {
+					console.log(`[SyncService] Skipping update for ${mapping.eventId} - recently modified locally (${timeSinceUpdate}ms ago)`);
+					
+					// Still update the mapping timestamp to prevent re-processing
+					await db
+						.update(syncMappingTable)
+						.set({ etag: externalEvent.etag ?? null, lastSyncedAt: new Date() })
+						.where(eq(syncMappingTable.id, mapping.id));
+					return;
+				}
+			}
+			
 			const internalEvent = this.mapExternalToInternal(externalEvent, config.userId);
 
 			await db
@@ -360,7 +385,52 @@ export class SyncService {
 				.set({ etag: externalEvent.etag ?? null, lastSyncedAt: new Date() })
 				.where(eq(syncMappingTable.id, mapping.id));
 		} else {
-			// Create new event
+			// Before creating a new event, check if we already have a local event with similar properties
+			// that was just created (within last 30 seconds). This prevents duplicates when:
+			// 1. User creates event locally → pushes to Google → webhook fires → tries to pull back
+			console.log(`[SyncService] Checking for recently created local events before creating new one`);
+			
+			const recentEvents = await db
+				.select()
+				.from(eventTable)
+				.where(
+					and(
+						eq(eventTable.userId, config.userId),
+						eq(eventTable.summary, externalEvent.summary)
+					)
+				);
+			
+			// Check if any recent event matches this external event
+			for (const recentEvent of recentEvents) {
+				const timeSinceCreation = Date.now() - recentEvent.createdAt.getTime();
+				
+				// If we find a very recently created event with same summary and similar time
+				if (timeSinceCreation < 30000) {
+					const startTimesMatch = 
+						(recentEvent.startDate === externalEvent.startDate) ||
+						(recentEvent.startDateTime?.toISOString() === externalEvent.startDateTime?.toISOString());
+					
+					if (startTimesMatch) {
+						console.log(`[SyncService] Found matching recent local event ${recentEvent.id}, creating mapping instead of duplicate`);
+						
+						// Create mapping to link this local event to the external one
+						await db.insert(syncMappingTable).values({
+							id: crypto.randomUUID(),
+							syncConfigId: config.id,
+							eventId: recentEvent.id,
+							externalId: externalEvent.externalId,
+							providerId: config.providerId,
+							etag: externalEvent.etag ?? null,
+							lastSyncedAt: new Date()
+						});
+						
+						return; // Don't create duplicate
+					}
+				}
+			}
+			
+			// Create new event - no matching local event found
+			console.log(`[SyncService] Creating new local event from external ${externalEvent.externalId}`);
 			const internalEvent = this.mapExternalToInternal(externalEvent, config.userId);
 			const [newEvent] = await db.insert(eventTable).values(internalEvent).returning();
 
@@ -689,6 +759,17 @@ export class SyncService {
 			if (mapping) {
 				// Update existing event
 				console.log(`[SyncService] Updating event ${eventId} on provider (external ID: ${mapping.externalId})`);
+				
+				// Check if this event was recently synced from provider (within last 30 seconds)
+				// This prevents echo loops where: provider → pull → local update → push back
+				if (mapping.lastSyncedAt) {
+					const timeSinceSync = Date.now() - mapping.lastSyncedAt.getTime();
+					if (timeSinceSync < 30000) {
+						console.log(`[SyncService] Skipping push for ${eventId} - recently synced from provider (${timeSinceSync}ms ago)`);
+						return;
+					}
+				}
+				
 				const externalEvent = this.mapInternalToExternal(eventRow, config.providerType);
 				const { etag } = await provider.updateEvent(mapping.externalId, externalEvent);
 
@@ -702,6 +783,7 @@ export class SyncService {
 				const externalEvent = this.mapInternalToExternal(eventRow, config.providerType);
 				const { externalId, etag } = await provider.pushEvent(externalEvent);
 
+				// Create mapping immediately to prevent duplicates if webhook fires quickly
 				await db.insert(syncMappingTable).values({
 					id: crypto.randomUUID(),
 					syncConfigId: config.id,
@@ -711,6 +793,8 @@ export class SyncService {
 					etag: etag ?? null,
 					lastSyncedAt: new Date()
 				});
+				
+				console.log(`[SyncService] Created mapping for event ${eventId} → external ${externalId}`);
 			}
 
 			console.log(`[SyncService] Successfully synced event ${eventId}`);
