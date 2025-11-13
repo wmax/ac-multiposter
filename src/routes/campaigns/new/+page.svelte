@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { createCampaign } from './create.remote';
+	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 
 	const createForm = createCampaign;
 
@@ -11,24 +12,10 @@
 </script>
 
 <div class="container mx-auto px-4 py-8">
-	<!-- Breadcrumb Navigation -->
-	<nav class="mb-4 text-sm">
-		<ol class="flex items-center space-x-2 text-gray-600">
-			<li>
-				<a href="/" class="hover:text-blue-600 hover:underline">Home</a>
-			</li>
-			<li>
-				<span class="text-gray-400">/</span>
-			</li>
-			<li>
-				<a href="/campaigns" class="hover:text-blue-600 hover:underline">Campaigns</a>
-			</li>
-			<li>
-				<span class="text-gray-400">/</span>
-			</li>
-			<li class="text-gray-900 font-medium">New Campaign</li>
-		</ol>
-	</nav>
+	<Breadcrumb 
+		feature="campaigns"
+		current="New Campaign"
+	/>
 
 	<div class="max-w-2xl">
 		<h1 class="text-3xl font-bold mb-6">Create New Campaign</h1>

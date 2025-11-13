@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -50,14 +51,30 @@
 			deleting = false;
 		}
 	}
+	function handleCardClick() {
+		if (href) goto(href);
+	}
 </script>
 
-<div class="bg-white shadow rounded-lg p-6 flex items-start gap-4">
+<div
+	class="bg-white shadow rounded-lg p-6 flex items-start gap-4 cursor-pointer hover:bg-gray-50"
+	onclick={handleCardClick}
+	role="link"
+	aria-label="Open details"
+	tabindex="0"
+	onkeydown={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			handleCardClick();
+		}
+	}}
+>
 	{#if onToggle}
 		<input
 			type="checkbox"
 			checked={selected}
 			onchange={() => onToggle?.(id)}
+			onclick={(e) => e.stopPropagation()}
 			class="mt-1 w-4 h-4 text-blue-600"
 		/>
 	{/if}

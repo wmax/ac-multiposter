@@ -5,7 +5,9 @@
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 	import ListCard from '$lib/components/ui/ListCard.svelte';
 	import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { createMultiSelect } from '$lib/hooks/multiSelect.svelte';
+	import { Megaphone } from '@lucide/svelte';
 
 	// Multi-select state
 	const selection = createMultiSelect<Campaign>();
@@ -46,23 +48,21 @@
 			<div class="text-center py-12 text-gray-500">Loading campaigns...</div>
 		{:then campaigns}
 			{#if campaigns.length === 0}
-				<div class="text-center py-12 text-gray-500">
-					<p class="text-lg mb-4">No campaigns yet</p>
-					<a
-						href="/campaigns/new"
-						class="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-					>
-						Create your first campaign
-					</a>
-				</div>
+				<EmptyState
+					icon={Megaphone}
+					title="No Campaigns"
+					description="Get started by creating your first marketing campaign"
+					actionLabel="Create Your First Campaign"
+					actionHref="/campaigns/new"
+				/>
 			{:else}
 				{#each campaigns as campaign (campaign.id)}
 					<ListCard
 						id={campaign.id}
-						href="/campaigns/{campaign.id}"
+						href={`/campaigns/${campaign.id}`}
 						selected={selection.isSelected(campaign.id)}
 						onToggle={selection.toggleSelection}
-						editHref="/campaigns/{campaign.id}?edit=1"
+						editHref={`/campaigns/${campaign.id}?edit=1`}
 						onDelete={async (id) => {
 							await deleteCampaigns([id]).updates(listCampaigns());
 						}}
@@ -70,7 +70,7 @@
 					>
 						{#snippet title()}
 							<a 
-								href="/campaigns/{campaign.id}" 
+								href={`/campaigns/${campaign.id}`} 
 								class="hover:underline text-blue-600"
 								onclick={(e) => e.stopPropagation()}
 							>

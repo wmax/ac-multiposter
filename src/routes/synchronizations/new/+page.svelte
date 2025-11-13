@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { Calendar, ArrowLeft, ArrowRight, ArrowLeftRight } from '@lucide/svelte';
 	import DashboardCard from '$lib/components/ui/DashboardCard.svelte';
+	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
 
 	let selectedProvider = $state<'google-calendar' | 'microsoft-calendar' | null>(null);
@@ -84,10 +85,12 @@
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8 max-w-4xl">
+	<Breadcrumb 
+		feature="synchronizations"
+		current="Add Calendar Sync"
+	/>
+
 	<div class="mb-8">
-		<button onclick={() => goto('/synchronizations')} class="text-blue-600 hover:text-blue-700 mb-4 inline-block">
-			← Back to Synchronizations
-		</button>
 		<h1 class="text-3xl font-bold">Add Calendar Sync</h1>
 		<p class="text-gray-600 mt-2">Connect a calendar service to synchronize your events</p>
 	</div>

@@ -4,6 +4,7 @@
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 	import ListCard from '$lib/components/ui/ListCard.svelte';
 	import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { createMultiSelect } from '$lib/hooks/multiSelect.svelte';
 	import { Calendar, Plus, RefreshCw, AlertCircle, CheckCircle2 } from '@lucide/svelte';
 
@@ -120,22 +121,13 @@
 			</div>
 		</div>
 	{:else if configs && configs.length === 0}
-		<div class="rounded-lg border border-gray-200 bg-white p-8 text-center">
-			<div class="text-center py-8">
-				<Calendar class="h-16 w-16 text-gray-300 mx-auto mb-4" />
-				<h2 class="text-xl font-semibold text-gray-700 mb-2">No Synchronizations</h2>
-				<p class="text-gray-500 mb-4">
-					Get started by connecting your first calendar service
-				</p>
-				<a
-					href="/synchronizations/new"
-					class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-				>
-					<Plus class="h-5 w-5" />
-					Add Your First Sync
-				</a>
-			</div>
-		</div>
+		<EmptyState
+			icon={Calendar}
+			title="No Synchronizations"
+			description="Get started by connecting your first calendar service"
+			actionLabel="Add Your First Sync"
+			actionHref="/synchronizations/new"
+		/>
 	{:else if configs}
 		<div class="grid gap-4">
 			{#each configs as config}
@@ -143,10 +135,10 @@
 				{@const statusColor = getStatusColor(config.enabled, config.lastSyncAt)}
 				<ListCard
 					id={config.id}
-					href="/synchronizations/{config.id}"
+					href={`/synchronizations/${config.id}`}
 					selected={selection.isSelected(config.id)}
 					onToggle={selection.toggleSelection}
-					editHref="/synchronizations/{config.id}"
+					editHref={`/synchronizations/${config.id}`}
 					onDelete={async (id) => {
 						await remove(id).updates(list());
 						await loadConfigs();
@@ -155,7 +147,7 @@
 				>
 					{#snippet title()}
 						<a 
-							href="/synchronizations/{config.id}" 
+							href={`/synchronizations/${config.id}`} 
 							class="flex items-center gap-3 hover:opacity-80"
 							onclick={(e) => e.stopPropagation()}
 						>

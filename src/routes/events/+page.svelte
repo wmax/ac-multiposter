@@ -5,8 +5,10 @@
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 	import ListCard from '$lib/components/ui/ListCard.svelte';
 	import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { createMultiSelect } from '$lib/hooks/multiSelect.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
+	import { Calendar, Plus } from '@lucide/svelte';
 
 	// Multi-select state
 	const selection = createMultiSelect<Event>();
@@ -73,24 +75,22 @@
 			<div class="text-center py-12 text-gray-500">Loading events...</div>
 		{:then events}
 			{#if events.length === 0}
-				<div class="text-center py-12 text-gray-500">
-					<p class="text-lg mb-4">No events yet</p>
-					<a
-						href="/events/new"
-						class="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-					>
-						Create your first event
-					</a>
-				</div>
+				<EmptyState
+					icon={Calendar}
+					title="No Events"
+					description="Get started by creating your first calendar event"
+					actionLabel="Create Your First Event"
+					actionHref="/events/new"
+				/>
 			{:else}
 				{#each events as event (event.id)}
 					<ListCard
 						id={event.id}
-						href="/events/{event.id}"
+						href={`/events/${event.id}`}
 						selected={selection.isSelected(event.id)}
 						onToggle={selection.toggleSelection}
 						subtitle={formatEventTime(event)}
-						editHref="/events/{event.id}?edit=1"
+						editHref={`/events/${event.id}?edit=1`}
 						onDelete={async (id) => {
 							await deleteEvents([id]).updates(listEvents());
 							toast.success('Event deleted successfully!');
@@ -99,7 +99,7 @@
 					>
 						{#snippet title()}
 							<a 
-								href="/events/{event.id}" 
+								href={`/events/${event.id}`} 
 								class="hover:underline text-blue-600"
 								onclick={(e) => e.stopPropagation()}
 							>

@@ -26,7 +26,7 @@
 				<span class="text-gray-400">/</span>
 			</li>
 			<li>
-				{#if segment.href && i < breadcrumbSegments.length - 1}
+				{#if segment.href && (i < breadcrumbSegments.length - 1 || current)}
 					<button onclick={() => goto(segment.href!)} class="hover:text-blue-600 hover:underline">{segment.label}</button>
 				{:else}
 					<span class="text-gray-900 font-medium">{segment.label}</span>

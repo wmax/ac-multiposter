@@ -5,7 +5,8 @@
 	import { updateEvent } from './update.remote';
 	import { deleteEvents } from './delete.remote';
 	import type { Event } from '../list.remote';
-    import EventForm from '$lib/components/events/EventForm.svelte';
+	import EventForm from '$lib/components/events/EventForm.svelte';
+	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
 
 	// Shape expected by updateEvent command
@@ -157,26 +158,10 @@
 		</div>
 	{:else}
 		<div class="container mx-auto px-4 py-8 max-w-4xl">
-			<!-- Breadcrumb Navigation -->
-			<nav class="mb-4 text-sm">
-				<ol class="flex items-center space-x-2 text-gray-600">
-					<li>
-						<button onclick={() => goto('/')} class="hover:text-blue-600 hover:underline">Home</button>
-					</li>
-					<li>
-						<span class="text-gray-400">/</span>
-					</li>
-					<li>
-						<button onclick={() => goto('/events')} class="hover:text-blue-600 hover:underline">Events</button>
-					</li>
-					<li>
-						<span class="text-gray-400">/</span>
-					</li>
-					<li class="text-gray-900 font-medium truncate max-w-xs">
-						{event.summary}
-					</li>
-				</ol>
-			</nav>
+			<Breadcrumb 
+				feature="events"
+				current={event.summary}
+			/>
 
 			<div class="flex justify-between items-start mb-6">
 				<h1 class="text-3xl font-bold">{event.summary}</h1>

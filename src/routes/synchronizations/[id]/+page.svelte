@@ -6,6 +6,7 @@
 	import { remove } from './delete.remote';
 	import { sync } from './sync.remote';
 	import DashboardCard from '$lib/components/ui/DashboardCard.svelte';
+	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 	import {
 		Calendar,
 		RefreshCw,
@@ -14,8 +15,7 @@
 		CheckCircle2,
 		XCircle,
 		Clock,
-		AlertCircle,
-		ArrowLeft
+		AlertCircle
 	} from '@lucide/svelte';
 
 	const configId = $page.params.id!;
@@ -155,66 +155,70 @@
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">
-	<div class="mb-8">
-		<button onclick={() => goto('/synchronizations')} class="text-blue-600 hover:text-blue-700 mb-4 inline-block">
-			← Back to Synchronizations
-		</button>
+	{#if configLoading}
+		<Breadcrumb feature="synchronizations" />
+		<div class="flex justify-center py-12">
+			<RefreshCw class="h-8 w-8 animate-spin text-gray-400" />
+		</div>
+	{:else if configError}
+		<Breadcrumb feature="synchronizations" />
+		<div class="rounded-lg border border-red-200 bg-red-50 p-4">
+			<div class="flex items-center gap-2 text-red-600">
+				<AlertCircle class="h-5 w-5" />
+				<p>Failed to load sync configuration: {configError}</p>
+			</div>
+		</div>
+	{:else if config}
+		<Breadcrumb 
+			feature="synchronizations"
+			current={config.providerId}
+		/>
 
-		{#if configLoading}
-			<div class="flex justify-center py-12">
-				<RefreshCw class="h-8 w-8 animate-spin text-gray-400" />
-			</div>
-		{:else if configError}
-			<div class="rounded-lg border border-red-200 bg-red-50 p-4">
-				<div class="flex items-center gap-2 text-red-600">
-					<AlertCircle class="h-5 w-5" />
-					<p>Failed to load sync configuration: {configError}</p>
-				</div>
-			</div>
-		{:else if config}
-			<div class="space-y-6">
-				<!-- Header -->
-				<div class="flex items-start justify-between">
-					<div class="flex items-center gap-4">
-						<div class="rounded-lg bg-blue-100 p-3">
-							<Calendar class="h-8 w-8 text-blue-600" />
-						</div>
-						<div>
-							<h1 class="text-3xl font-bold">{getProviderLabel(config.providerType)}</h1>
-							<p class="text-gray-600">{config.providerId}</p>
-						</div>
+		<div class="space-y-6">
+			<!-- Header -->
+			<div class="flex items-start justify-between">
+				<div class="flex items-center gap-4">
+					<div class="rounded-lg bg-blue-100 p-3">
+						<Calendar class="h-8 w-8 text-blue-600" />
 					</div>
-					<div class="flex gap-2">
-						<button
-													type="button"
-													onclick={triggerSync}
-							disabled={isSyncing}
-							class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-						>
-							<RefreshCw class="h-4 w-4 {isSyncing ? 'animate-spin' : ''}" />
-							{isSyncing ? 'Syncing...' : 'Sync Now'}
-						</button>
-						<button
-													type="button"
-													onclick={toggleEnabled}
-							disabled={isUpdating}
-							class="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-						>
-							{config.enabled ? 'Disable' : 'Enable'}
-						</button>
-						<button
-													type="button"
-													onclick={confirmDelete}
-							disabled={isDeleting}
-							class="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
-						>
-							<Trash2 class="h-4 w-4" />
-							Delete
-						</button>
+					<div>
+						<h1 class="text-3xl font-bold">{getProviderLabel(config.providerType)}</h1>
+						<p class="text-gray-600">{config.providerId}</p>
 					</div>
 				</div>
+				<div class="flex gap-2">
+					<button
+						type="button"
+						onclick={triggerSync}
+						disabled={isSyncing}
+						class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+					>
+						<RefreshCw class="h-4 w-4 {isSyncing ? 'animate-spin' : ''}" />
+						{isSyncing ? 'Syncing...' : 'Sync Now'}
+					</button>
+					<button
+						type="button"
+						onclick={toggleEnabled}
+						disabled={isUpdating}
+						class="flex items-center gap-2 px-4 py-2 {config.enabled
+							? 'bg-gray-600'
+							: 'bg-green-600'} text-white rounded-lg hover:bg-opacity-90 disabled:opacity-50"
+					>
+						{config.enabled ? 'Disable' : 'Enable'}
+					</button>
+					<button
+						type="button"
+						onclick={confirmDelete}
+						disabled={isDeleting}
+						class="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+					>
+						<Trash2 class="h-4 w-4" />
+						{isDeleting ? 'Deleting...' : 'Delete'}
+					</button>
+				</div>
+			</div>
 
-				<!-- Status Info -->
+			<!-- Status Info -->
 				<div class="grid gap-6 md:grid-cols-2">
 					<div class="rounded-lg border border-gray-200 bg-white p-6">
 						<h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -380,4 +384,3 @@
 			</div>
 		{/if}
 	</div>
-</div>

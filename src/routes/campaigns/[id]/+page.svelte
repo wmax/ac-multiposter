@@ -6,6 +6,7 @@
 	import { deleteCampaigns } from './delete.remote';
 	import type { Campaign } from '../list.remote';
 	import { listCampaigns } from '../list.remote';
+	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 
 	const campaignId = $derived($page.params.id || '');
 
@@ -63,32 +64,14 @@
 </script>
 
 <div class="container mx-auto px-4 py-8">
-	<!-- Breadcrumb Navigation -->
-	<nav class="mb-4 text-sm">
-		<ol class="flex items-center space-x-2 text-gray-600">
-			<li>
-				<button onclick={() => goto('/')} class="hover:text-blue-600 hover:underline">Home</button>
-			</li>
-			<li>
-				<span class="text-gray-400">/</span>
-			</li>
-			<li>
-				<button onclick={() => goto('/campaigns')} class="hover:text-blue-600 hover:underline">Campaigns</button>
-			</li>
-			<li>
-				<span class="text-gray-400">/</span>
-			</li>
-			{#await getCampaign(campaignId) then campaign}
-				{#if campaign}
-					<li class="text-gray-900 font-medium truncate max-w-xs">
-						{campaign.name}
-					</li>
-				{:else}
-					<li class="text-gray-900 font-medium">Not Found</li>
-				{/if}
-			{/await}
-		</ol>
-	</nav>
+	{#if campaignData}
+		<Breadcrumb 
+			feature="campaigns"
+			current={campaignData.name}
+		/>
+	{:else}
+		<Breadcrumb feature="campaigns" />
+	{/if}
 
 	{#await getCampaign(campaignId)}
 		<div class="text-center py-12">
