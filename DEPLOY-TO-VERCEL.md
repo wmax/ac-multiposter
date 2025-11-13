@@ -122,6 +122,7 @@ Before deploying, add these environment variables in the Vercel dashboard:
 | `BETTER_AUTH_URL` | Your Vercel deployment URL | `https://your-project.vercel.app` | Update after first deploy |
 | `GOOGLE_CLIENT_ID` | From Google Cloud Console | `xxx.apps.googleusercontent.com` | OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | From Google Cloud Console | `GOCSPX-xxx` | OAuth client secret |
+| `GOOGLE_API_KEY` | (Optional) Google API Key | `AIza...` | Used by Google Calendar watch() to identify project |
 | `MICROSOFT_CLIENT_ID` | (Optional) From Azure | `xxx` | If using Microsoft auth |
 | `MICROSOFT_CLIENT_SECRET` | (Optional) From Azure | `xxx` | If using Microsoft auth |
 | `CRON_SECRET` | Random secure string for cron auth | Use: `openssl rand -base64 32` | Protects cron endpoint |

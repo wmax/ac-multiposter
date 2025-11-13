@@ -278,7 +278,10 @@ export class GoogleCalendarProvider implements SyncProvider {
 		const channelId = crypto.randomUUID();
 		const resourceId = crypto.randomUUID();
 
-		const response = await this.calendar.events.watch({
+		// Optionally include API key to associate the request with the GCP project
+		// Some Google APIs require a project identity in addition to OAuth tokens
+		const apiKey = env.GOOGLE_API_KEY;
+		const watchParams: any = {
 			calendarId: this.calendarId,
 			requestBody: {
 				id: channelId,
@@ -286,7 +289,10 @@ export class GoogleCalendarProvider implements SyncProvider {
 				address: callbackUrl,
 				token: this.config.id // Use config ID as verification token
 			}
-		});
+		};
+		if (apiKey) watchParams.key = apiKey;
+
+		const response = await this.calendar.events.watch(watchParams);
 
 		const expiresAt = new Date(parseInt(response.data.expiration || '0'));
 
