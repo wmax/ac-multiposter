@@ -2,12 +2,22 @@
 	import { goto } from '$app/navigation';
 	import { createCampaign } from './create.remote';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
+	import { toast } from '$lib/stores/toast.svelte';
 
 	const createForm = createCampaign;
 
 	async function handleSubmit() {
-		// Wait for form submission to complete, then redirect
-		await goto('/campaigns');
+		// Navigate immediately for better UX
+		const navigationPromise = goto('/campaigns');
+		toast.success('Creating campaign...');
+		
+		try {
+			// The form submission happens automatically
+			await navigationPromise;
+			toast.success('Campaign created successfully!');
+		} catch (error: any) {
+			toast.error(error.message || 'Failed to create campaign');
+		}
 	}
 </script>
 

@@ -7,6 +7,7 @@
 	import type { Campaign } from '../list.remote';
 	import { listCampaigns } from '../list.remote';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
+	import { toast } from '$lib/stores/toast.svelte';
 
 	const campaignId = $derived($page.params.id || '');
 
@@ -45,9 +46,11 @@
 				getCampaign(campaign.id),
 				listCampaigns()
 			);
+			toast.success('Campaign updated successfully!');
 			isEditMode = false;
 		} catch (error) {
-			alert('Failed to update campaign: ' + (error instanceof Error ? error.message : 'Unknown error'));
+			const message = error instanceof Error ? error.message : 'Unknown error';
+			toast.error('Failed to update campaign: ' + message);
 		}
 	}
 
@@ -56,9 +59,10 @@
 
 		try {
 			await deleteCampaigns([campaign.id]).updates(listCampaigns());
+			toast.success('Campaign deleted successfully!');
 			await goto('/campaigns');
 		} catch (error) {
-			alert('Failed to delete campaign');
+			toast.error('Failed to delete campaign');
 		}
 	}
 </script>

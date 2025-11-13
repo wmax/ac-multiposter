@@ -9,6 +9,9 @@ import type {
 import { calendar, type calendar_v3 } from '@googleapis/calendar';
 import { OAuth2Client, type Credentials } from 'google-auth-library';
 import { env } from '$env/dynamic/private';
+import { db } from '$lib/server/db';
+import { account } from '$lib/server/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 /**
  * Google Calendar sync provider implementation
@@ -21,6 +24,7 @@ export class GoogleCalendarProvider implements SyncProvider {
 
 	private config?: SyncConfig;
 	private calendar?: calendar_v3.Calendar;
+	private auth?: OAuth2Client;
 	private calendarId = 'primary'; // Can be overridden in settings
 
 	async initialize(config: SyncConfig): Promise<void> {
@@ -55,11 +59,44 @@ export class GoogleCalendarProvider implements SyncProvider {
 			redirectUri: `${authUrl}/api/auth/callback/google`
 		});
 
-		// Initialize OAuth2 client with stored credentials
-		const credentials = config.credentials as {
-			accessToken: string;
-			refreshToken?: string;
-			expiresAt?: number;
+		// Fetch fresh credentials from the Better Auth account table
+		// This ensures we always have the latest tokens rather than stale ones from sync config
+		const providerIdMap: Record<string, string> = {
+			'google-calendar': 'google',
+			'microsoft-calendar': 'microsoft'
+		};
+		const oauthProviderId = providerIdMap[config.providerType];
+		
+		const [userAccount] = await db
+			.select()
+			.from(account)
+			.where(and(
+				eq(account.userId, config.userId),
+				eq(account.providerId, oauthProviderId)
+			))
+			.limit(1);
+
+		if (!userAccount) {
+			throw new Error(
+				`No ${oauthProviderId} account connected. Please reconnect your account.`
+			);
+		}
+
+		console.log(`[GoogleCalendarProvider] Retrieved account from DB:`, {
+			userId: userAccount.userId,
+			providerId: userAccount.providerId,
+			hasAccessToken: !!userAccount.accessToken,
+			accessTokenLength: userAccount.accessToken?.length,
+			hasRefreshToken: !!userAccount.refreshToken,
+			refreshTokenLength: userAccount.refreshToken?.length,
+			expiresAt: userAccount.accessTokenExpiresAt
+		});
+
+		// Use fresh credentials from the account table
+		const credentials = {
+			accessToken: userAccount.accessToken,
+			refreshToken: userAccount.refreshToken,
+			expiresAt: userAccount.accessTokenExpiresAt?.getTime()
 		};
 
 		if (!credentials?.accessToken) {
@@ -79,21 +116,36 @@ export class GoogleCalendarProvider implements SyncProvider {
 			isExpired: credentials.expiresAt ? Date.now() >= credentials.expiresAt : 'unknown'
 		});
 
-		// Initialize OAuth2 client
-		const auth = new OAuth2Client(
+		// Initialize OAuth2 client and store it as instance property
+		this.auth = new OAuth2Client(
 			clientId,
 			clientSecret,
 			`${authUrl}/api/auth/callback/google`
 		);
 
-		auth.setCredentials({
+		console.log(`[GoogleCalendarProvider] Setting credentials on OAuth2Client:`, {
+			access_token_length: credentials.accessToken?.length,
+			refresh_token_length: credentials.refreshToken?.length,
+			expiry_date: credentials.expiresAt
+		});
+
+		this.auth.setCredentials({
 			access_token: credentials.accessToken,
 			refresh_token: credentials.refreshToken,
 			expiry_date: credentials.expiresAt
 		});
 
+		// Verify credentials were set
+		const currentCreds = this.auth.credentials;
+		console.log(`[GoogleCalendarProvider] Verified OAuth2Client credentials:`, {
+			has_access_token: !!currentCreds.access_token,
+			access_token_length: currentCreds.access_token?.length,
+			has_refresh_token: !!currentCreds.refresh_token,
+			expiry_date: currentCreds.expiry_date
+		});
+
 		// Set up token refresh callback to update stored credentials
-		auth.on('tokens', async (tokens: Credentials) => {
+		this.auth.on('tokens', async (tokens: Credentials) => {
 			console.log(`[GoogleCalendarProvider] Token refreshed automatically`);
 			if (tokens.access_token && this.config) {
 				// Update the stored credentials with the new access token
@@ -110,19 +162,23 @@ export class GoogleCalendarProvider implements SyncProvider {
 			}
 		});
 
-		// Type mismatch can occur due to differing versions of google-auth-library in transitive deps
-		// Casting to any here is acceptable as the client supports OAuth2Client instances
-		this.calendar = calendar({ version: 'v3', auth: auth as any });
+		// The @googleapis/calendar package doesn't properly accept auth in the constructor
+		// We need to create the client without auth and then make requests using the auth object
+		// by passing it to each API call
+		this.calendar = calendar({ version: 'v3' });
+		
 		console.log(`[GoogleCalendarProvider] Provider initialized successfully`);
 	}
 
 	async validateConnection(): Promise<boolean> {
-		if (!this.calendar) {
+		if (!this.calendar || !this.auth) {
 			throw new Error('Provider not initialized');
 		}
 
 		try {
-			await this.calendar.calendarList.list({ maxResults: 1 });
+			// Use auth.request() directly to ensure proper authentication
+			const url = `https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=1`;
+			await this.auth.request({ url, method: 'GET' });
 			return true;
 		} catch (error) {
 			console.error('Google Calendar connection validation failed:', error);
@@ -134,28 +190,27 @@ export class GoogleCalendarProvider implements SyncProvider {
 		events: ExternalEvent[];
 		nextSyncToken?: string;
 	}> {
-		if (!this.calendar) {
+		if (!this.calendar || !this.auth) {
 			throw new Error('Provider not initialized');
 		}
 
 		try {
 			console.log(`[GoogleCalendarProvider] Starting pullEvents, syncToken: ${syncToken ? 'present' : 'absent'}`);
 			
-			const params: calendar_v3.Params$Resource$Events$List = {
-				calendarId: this.calendarId,
-				maxResults: 250
-			};
+			// Build query parameters
+			const queryParams = new URLSearchParams({
+				maxResults: '250'
+			});
 
 			// Use sync token for incremental sync, otherwise full sync
 			if (syncToken) {
 				console.log(`[GoogleCalendarProvider] Using sync token for incremental sync`);
-				// When using sync token, cannot use singleEvents, orderBy, timeMin, or timeMax
-				params.syncToken = syncToken;
+				queryParams.append('syncToken', syncToken);
 			} else {
 				console.log(`[GoogleCalendarProvider] Performing full sync`);
 				// For full sync, we can use ordering and time filters
-				params.singleEvents = true; // Expand recurring events
-				params.orderBy = 'updated';
+				queryParams.append('singleEvents', 'true');
+				queryParams.append('orderBy', 'updated');
 				
 				// For full sync, only get events from the past year to now + 2 years
 				const now = new Date();
@@ -164,25 +219,28 @@ export class GoogleCalendarProvider implements SyncProvider {
 				const futureYears = new Date(now);
 				futureYears.setFullYear(now.getFullYear() + 2);
 
-				params.timeMin = pastYear.toISOString();
-				params.timeMax = futureYears.toISOString();
+				queryParams.append('timeMin', pastYear.toISOString());
+				queryParams.append('timeMax', futureYears.toISOString());
 				
 				console.log(`[GoogleCalendarProvider] Full sync time range:`, {
-					timeMin: params.timeMin,
-					timeMax: params.timeMax
+					timeMin: pastYear.toISOString(),
+					timeMax: futureYears.toISOString()
 				});
 			}
 
 			console.log(`[GoogleCalendarProvider] Calling Google Calendar API with params:`, {
-				calendarId: params.calendarId,
-				maxResults: params.maxResults,
-				hasSyncToken: !!params.syncToken,
-				singleEvents: params.singleEvents,
-				orderBy: params.orderBy,
-				hasTimeRange: !!(params.timeMin || params.timeMax)
+				calendarId: this.calendarId,
+				maxResults: 250,
+				hasSyncToken: !!syncToken
 			});
 			
-			const response = await this.calendar.events.list(params);
+			// Use auth.request() directly to ensure proper authentication
+			const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.calendarId)}/events?${queryParams.toString()}`;
+			
+			const response = await this.auth.request<calendar_v3.Schema$Events>({
+				url,
+				method: 'GET'
+			});
 			
 			console.log(`[GoogleCalendarProvider] API response:`, {
 				itemCount: response.data.items?.length || 0,
@@ -207,8 +265,8 @@ export class GoogleCalendarProvider implements SyncProvider {
 				errors: error.errors
 			});
 			
-			// Handle sync token invalidation
-			if (error.code === 410 && syncToken) {
+			// Handle sync token invalidation (410 = Gone)
+			if (error.code === 410) {
 				console.warn('[GoogleCalendarProvider] Sync token expired (410), performing full sync');
 				return this.pullEvents(); // Retry without sync token
 			}
@@ -224,15 +282,31 @@ export class GoogleCalendarProvider implements SyncProvider {
 	}
 
 	async pushEvent(event: ExternalEvent): Promise<{ externalId: string; etag?: string }> {
-		if (!this.calendar) {
+		if (!this.calendar || !this.auth) {
 			throw new Error('Provider not initialized');
 		}
 
+		console.log(`[GoogleCalendarProvider] Pushing event to Google Calendar`);
+		console.log(`[GoogleCalendarProvider] Auth state:`, {
+			hasAuth: !!this.auth,
+			hasCredentials: !!this.auth?.credentials,
+			hasAccessToken: !!this.auth?.credentials?.access_token,
+			accessTokenLength: this.auth?.credentials?.access_token?.length
+		});
+
 		const gcalEvent = this.mapToGoogleEvent(event);
 
-		const response = await this.calendar.events.insert({
-			calendarId: this.calendarId,
-			requestBody: gcalEvent
+		// Make the request directly using the auth client
+		// This ensures the Authorization header is properly set
+		const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.calendarId)}/events`;
+		
+		const response = await this.auth.request<{
+			id: string;
+			etag?: string;
+		}>({
+			url,
+			method: 'POST',
+			data: gcalEvent
 		});
 
 		return {
@@ -242,16 +316,21 @@ export class GoogleCalendarProvider implements SyncProvider {
 	}
 
 	async updateEvent(externalId: string, event: ExternalEvent): Promise<{ etag?: string }> {
-		if (!this.calendar) {
+		if (!this.calendar || !this.auth) {
 			throw new Error('Provider not initialized');
 		}
 
 		const gcalEvent = this.mapToGoogleEvent(event);
 
-		const response = await this.calendar.events.update({
-			calendarId: this.calendarId,
-			eventId: externalId,
-			requestBody: gcalEvent
+		// Use auth.request() directly to ensure proper authentication
+		const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.calendarId)}/events/${encodeURIComponent(externalId)}`;
+		
+		const response = await this.auth.request<{
+			etag?: string;
+		}>({
+			url,
+			method: 'PUT',
+			data: gcalEvent
 		});
 
 		return {
@@ -260,18 +339,21 @@ export class GoogleCalendarProvider implements SyncProvider {
 	}
 
 	async deleteEvent(externalId: string): Promise<void> {
-		if (!this.calendar) {
+		if (!this.calendar || !this.auth) {
 			throw new Error('Provider not initialized');
 		}
 
-		await this.calendar.events.delete({
-			calendarId: this.calendarId,
-			eventId: externalId
+		// Use auth.request() directly to ensure proper authentication
+		const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.calendarId)}/events/${encodeURIComponent(externalId)}`;
+		
+		await this.auth.request({
+			url,
+			method: 'DELETE'
 		});
 	}
 
 	async setupWebhook(callbackUrl: string): Promise<WebhookSubscription> {
-		if (!this.calendar || !this.config) {
+		if (!this.calendar || !this.config || !this.auth) {
 			throw new Error('Provider not initialized');
 		}
 
@@ -279,10 +361,16 @@ export class GoogleCalendarProvider implements SyncProvider {
 		const resourceId = crypto.randomUUID();
 
 		// OAuth2 credentials are sufficient for the Calendar API - no API key needed
-		// Adding an API key can interfere with OAuth2 authentication
-		const response = await this.calendar.events.watch({
-			calendarId: this.calendarId,
-			requestBody: {
+		// Use auth.request() directly to ensure proper authentication
+		const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.calendarId)}/events/watch`;
+		
+		const response = await this.auth.request<{
+			resourceId?: string;
+			expiration?: string;
+		}>({
+			url,
+			method: 'POST',
+			data: {
 				id: channelId,
 				type: 'web_hook',
 				address: callbackUrl,
@@ -315,13 +403,18 @@ export class GoogleCalendarProvider implements SyncProvider {
 	}
 
 	async cancelWebhook(subscription: WebhookSubscription): Promise<void> {
-		if (!this.calendar) {
+		if (!this.calendar || !this.auth) {
 			throw new Error('Provider not initialized');
 		}
 
 		try {
-			await this.calendar.channels.stop({
-				requestBody: {
+			// Use auth.request() directly to ensure proper authentication
+			const url = 'https://www.googleapis.com/calendar/v3/channels/stop';
+			
+			await this.auth.request({
+				url,
+				method: 'POST',
+				data: {
 					id: subscription.channelId,
 					resourceId: subscription.resourceId
 				}

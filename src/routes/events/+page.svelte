@@ -6,12 +6,16 @@
 	import ListCard from '$lib/components/ui/ListCard.svelte';
 	import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { createMultiSelect } from '$lib/hooks/multiSelect.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
 	import { Calendar, Plus } from '@lucide/svelte';
 
 	// Multi-select state
 	const selection = createMultiSelect<Event>();
+	
+	// Create a single promise for the events list
+	let eventsPromise = $state(listEvents());
 
 	async function handleBulkDelete() {
 		if (selection.count === 0) return;
@@ -22,6 +26,7 @@
 			await deleteEvents(selection.getSelectedArray()).updates(listEvents());
 			toast.success(`${count} event(s) deleted successfully!`);
 			selection.deselectAll();
+			eventsPromise = listEvents(); // Refresh the list
 		} catch (error: any) {
 			toast.error(error.message || 'Failed to delete events');
 		}
@@ -55,9 +60,14 @@
 <div class="container mx-auto px-4 py-8">
 	<Breadcrumb feature="events" />
 
-	<div class="flex justify-between items-center mb-6">
-		<h1 class="text-3xl font-bold">Calendar Events</h1>
-		{#await listEvents() then events}
+	{#await eventsPromise}
+		<div class="flex justify-between items-center mb-6">
+			<h1 class="text-3xl font-bold">Calendar Events</h1>
+		</div>
+		<Spinner message="Loading events..." />
+	{:then events}
+		<div class="flex justify-between items-center mb-6">
+			<h1 class="text-3xl font-bold">Calendar Events</h1>
 			<BulkActionToolbar
 				selectedCount={selection.count}
 				totalCount={events.length}
@@ -67,13 +77,9 @@
 				newItemHref="/events/new"
 				newItemLabel="+ New Event"
 			/>
-		{/await}
-	</div>
+		</div>
 
-	<div class="grid gap-4">
-		{#await listEvents()}
-			<div class="text-center py-12 text-gray-500">Loading events...</div>
-		{:then events}
+		<div class="grid gap-4">
 			{#if events.length === 0}
 				<EmptyState
 					icon={Calendar}
@@ -94,6 +100,7 @@
 						onDelete={async (id) => {
 							await deleteEvents([id]).updates(listEvents());
 							toast.success('Event deleted successfully!');
+							eventsPromise = listEvents(); // Refresh the list
 						}}
 						deleteLabel="Delete"
 					>
@@ -155,11 +162,16 @@
 					</ListCard>
 				{/each}
 			{/if}
-		{:catch error}
-			<div class="text-center py-12">
-				<p class="text-red-600 mb-3">{error?.message || 'Failed to load events'}</p>
-				<a href="/api/auth/signin" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Sign in</a>
-			</div>
-		{/await}
-	</div>
+		</div>
+	{:catch error}
+		<div class="text-center py-12">
+			<p class="text-red-600 mb-3">{error?.message || 'Failed to load events'}</p>
+			<button 
+				onclick={() => eventsPromise = listEvents()}
+				class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+			>
+				Retry
+			</button>
+		</div>
+	{/await}
 </div>

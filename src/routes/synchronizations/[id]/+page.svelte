@@ -7,6 +7,7 @@
 	import { sync } from './sync.remote';
 	import DashboardCard from '$lib/components/ui/DashboardCard.svelte';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
+	import { toast } from '$lib/stores/toast.svelte';
 	import {
 		Calendar,
 		RefreshCw,
@@ -75,8 +76,10 @@
 			updateError = null;
 			await update({ id: configId, input });
 			await loadConfig();
+			toast.success(config.enabled ? 'Sync disabled' : 'Sync enabled');
 		} catch (e: any) {
 			updateError = e.message;
+			toast.error('Failed to update sync: ' + e.message);
 		} finally {
 			isUpdating = false;
 		}
@@ -89,8 +92,10 @@
 			await sync(configId);
 			await loadConfig();
 			await loadOperations();
+			toast.success('Sync completed successfully!');
 		} catch (e: any) {
 			syncError = e.message;
+			toast.error('Sync failed: ' + e.message);
 		} finally {
 			isSyncing = false;
 		}
@@ -102,9 +107,11 @@
 				isDeleting = true;
 				deleteError = null;
 				await remove(configId);
+				toast.success('Sync configuration deleted successfully!');
 				goto('/synchronizations');
 			} catch (e: any) {
 				deleteError = e.message;
+				toast.error('Failed to delete sync configuration');
 				isDeleting = false;
 			}
 		}

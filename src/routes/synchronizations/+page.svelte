@@ -5,31 +5,16 @@
 	import ListCard from '$lib/components/ui/ListCard.svelte';
 	import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { createMultiSelect } from '$lib/hooks/multiSelect.svelte';
+	import { toast } from '$lib/stores/toast.svelte';
 	import { Calendar, Plus, RefreshCw, AlertCircle, CheckCircle2 } from '@lucide/svelte';
 
 	// Multi-select state
 	const selection = createMultiSelect<any>();
-
-	let configs = $state<any>(null);
-	let loading = $state(true);
-	let error = $state<Error | null>(null);
-
-	async function loadConfigs() {
-		loading = true;
-		error = null;
-		try {
-			configs = await list();
-		} catch (e: any) {
-			error = e;
-		} finally {
-			loading = false;
-		}
-	}
-
-	$effect(() => {
-		loadConfigs();
-	});
+	
+	// Create a single promise for the config list
+	let configsPromise = $state(list());
 
 	async function handleBulkDelete() {
 		if (selection.count === 0) return;
@@ -37,10 +22,11 @@
 
 		try {
 			await removeBulk(selection.getSelectedArray()).updates(list());
+			toast.success(`${selection.count} sync configuration(s) deleted successfully!`);
 			selection.deselectAll();
-			await loadConfigs();
-		} catch (error) {
-			alert('Failed to delete sync configurations');
+			configsPromise = list(); // Refresh the list
+		} catch (error: any) {
+			toast.error(error.message || 'Failed to delete sync configurations');
 		}
 	}
 
@@ -83,12 +69,20 @@
 <div class="container mx-auto px-4 py-8">
 	<Breadcrumb feature="synchronizations" />
 	
-	<div class="mb-8 flex items-center justify-between">
-		<div>
-			<h1 class="text-3xl font-bold">Synchronizations</h1>
-			<p class="text-gray-600 mt-2">Manage your calendar synchronization connections</p>
+	{#await configsPromise}
+		<div class="mb-8 flex items-center justify-between">
+			<div>
+				<h1 class="text-3xl font-bold">Synchronizations</h1>
+				<p class="text-gray-600 mt-2">Manage your calendar synchronization connections</p>
+			</div>
 		</div>
-		{#if configs && !loading}
+		<Spinner message="Loading synchronizations..." />
+	{:then configs}
+		<div class="mb-8 flex items-center justify-between">
+			<div>
+				<h1 class="text-3xl font-bold">Synchronizations</h1>
+				<p class="text-gray-600 mt-2">Manage your calendar synchronization connections</p>
+			</div>
 			<BulkActionToolbar
 				selectedCount={selection.count}
 				totalCount={configs.length}
@@ -98,53 +92,34 @@
 				newItemHref="/synchronizations/new"
 				newItemLabel="Add Sync"
 			/>
-		{:else}
-			<a
-				href="/synchronizations/new"
-				class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-			>
-				<Plus class="h-5 w-5" />
-				Add Sync
-			</a>
-		{/if}
-	</div>
+		</div>
 
-	{#if loading}
-		<div class="flex justify-center py-12">
-			<RefreshCw class="h-8 w-8 animate-spin text-gray-400" />
-		</div>
-	{:else if error}
-		<div class="rounded-lg border border-red-200 bg-red-50 p-4">
-			<div class="flex items-center gap-2 text-red-600">
-				<AlertCircle class="h-5 w-5" />
-				<p>Failed to load sync configurations: {error}</p>
-			</div>
-		</div>
-	{:else if configs && configs.length === 0}
-		<EmptyState
-			icon={Calendar}
-			title="No Synchronizations"
-			description="Get started by connecting your first calendar service"
-			actionLabel="Add Your First Sync"
-			actionHref="/synchronizations/new"
-		/>
-	{:else if configs}
-		<div class="grid gap-4">
-			{#each configs as config}
-				{@const Icon = getProviderIcon(config.providerType)}
-				{@const statusColor = getStatusColor(config.enabled, config.lastSyncAt)}
-				<ListCard
-					id={config.id}
-					href={`/synchronizations/${config.id}`}
-					selected={selection.isSelected(config.id)}
-					onToggle={selection.toggleSelection}
-					editHref={`/synchronizations/${config.id}`}
-					onDelete={async (id) => {
-						await remove(id).updates(list());
-						await loadConfigs();
-					}}
-					deleteLabel="Delete"
-				>
+		{#if configs.length === 0}
+			<EmptyState
+				icon={Calendar}
+				title="No Synchronizations"
+				description="Get started by connecting your first calendar service"
+				actionLabel="Add Your First Sync"
+				actionHref="/synchronizations/new"
+			/>
+		{:else}
+			<div class="grid gap-4">
+				{#each configs as config}
+					{@const Icon = getProviderIcon(config.providerType)}
+					{@const statusColor = getStatusColor(config.enabled, config.lastSyncAt)}
+					<ListCard
+						id={config.id}
+						href={`/synchronizations/${config.id}`}
+						selected={selection.isSelected(config.id)}
+						onToggle={selection.toggleSelection}
+						editHref={`/synchronizations/${config.id}`}
+						onDelete={async (id) => {
+							await remove(id).updates(list());
+							toast.success('Sync configuration deleted successfully!');
+							configsPromise = list(); // Refresh the list
+						}}
+						deleteLabel="Delete"
+					>
 					{#snippet title()}
 						<a 
 							href={`/synchronizations/${config.id}`} 
@@ -206,5 +181,21 @@
 				</ListCard>
 			{/each}
 		</div>
-	{/if}
+		{/if}
+	{:catch error}
+		<div class="text-center py-12">
+			<div class="rounded-lg border border-red-200 bg-red-50 p-4 inline-block">
+				<div class="flex items-center gap-2 text-red-600 mb-3">
+					<AlertCircle class="h-5 w-5" />
+					<p>{error?.message || 'Failed to load sync configurations'}</p>
+				</div>
+				<button 
+					onclick={() => configsPromise = list()}
+					class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+				>
+					Retry
+				</button>
+			</div>
+		</div>
+	{/await}
 </div>

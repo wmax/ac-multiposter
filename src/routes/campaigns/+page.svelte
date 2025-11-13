@@ -6,11 +6,16 @@
 	import ListCard from '$lib/components/ui/ListCard.svelte';
 	import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { createMultiSelect } from '$lib/hooks/multiSelect.svelte';
+	import { toast } from '$lib/stores/toast.svelte';
 	import { Megaphone } from '@lucide/svelte';
 
 	// Multi-select state
 	const selection = createMultiSelect<Campaign>();
+	
+	// Create a single promise for the campaigns list
+	let campaignsPromise = $state(listCampaigns());
 
 	async function handleBulkDelete() {
 		if (selection.count === 0) return;
@@ -18,9 +23,11 @@
 
 		try {
 			await deleteCampaigns(selection.getSelectedArray()).updates(listCampaigns());
+			toast.success(`${selection.count} campaign(s) deleted successfully!`);
 			selection.deselectAll();
-		} catch (error) {
-			alert('Failed to delete campaigns');
+			campaignsPromise = listCampaigns(); // Refresh the list
+		} catch (error: any) {
+			toast.error(error.message || 'Failed to delete campaigns');
 		}
 	}
 </script>
@@ -28,9 +35,14 @@
 <div class="container mx-auto px-4 py-8">
 	<Breadcrumb feature="campaigns" />
 
-	<div class="flex justify-between items-center mb-6">
-		<h1 class="text-3xl font-bold">Campaigns</h1>
-		{#await listCampaigns() then campaigns}
+	{#await campaignsPromise}
+		<div class="flex justify-between items-center mb-6">
+			<h1 class="text-3xl font-bold">Campaigns</h1>
+		</div>
+		<Spinner message="Loading campaigns..." />
+	{:then campaigns}
+		<div class="flex justify-between items-center mb-6">
+			<h1 class="text-3xl font-bold">Campaigns</h1>
 			<BulkActionToolbar
 				selectedCount={selection.count}
 				totalCount={campaigns.length}
@@ -40,13 +52,9 @@
 				newItemHref="/campaigns/new"
 				newItemLabel="+ New Campaign"
 			/>
-		{/await}
-	</div>
+		</div>
 
-	<div class="grid gap-4">
-		{#await listCampaigns()}
-			<div class="text-center py-12 text-gray-500">Loading campaigns...</div>
-		{:then campaigns}
+		<div class="grid gap-4">
 			{#if campaigns.length === 0}
 				<EmptyState
 					icon={Megaphone}
@@ -65,6 +73,8 @@
 						editHref={`/campaigns/${campaign.id}?edit=1`}
 						onDelete={async (id) => {
 							await deleteCampaigns([id]).updates(listCampaigns());
+							toast.success('Campaign deleted successfully!');
+							campaignsPromise = listCampaigns(); // Refresh the list
 						}}
 						deleteLabel="Delete"
 					>
@@ -94,11 +104,16 @@
 					</ListCard>
 				{/each}
 			{/if}
-		{:catch error}
-			<div class="text-center py-12">
-				<p class="text-red-600 mb-3">{error?.message || 'Failed to load campaigns'}</p>
-				<a href="/api/auth/signin" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Sign in</a>
-			</div>
-		{/await}
-	</div>
+		</div>
+	{:catch error}
+		<div class="text-center py-12">
+			<p class="text-red-600 mb-3">{error?.message || 'Failed to load campaigns'}</p>
+			<button 
+				onclick={() => campaignsPromise = listCampaigns()}
+				class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+			>
+				Retry
+			</button>
+		</div>
+	{/await}
 </div>

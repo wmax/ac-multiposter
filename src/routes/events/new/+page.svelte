@@ -9,14 +9,19 @@
 	const createForm = createEvent;
 
 	async function handleCreate(data: any) {
+		// Navigate immediately for better UX
+		const navigationPromise = goto('/events');
+		toast.success('Creating event...');
+		
 		try {
+			// Execute the create operation in the background
 			await createForm(data).updates(listEvents());
+			await navigationPromise;
 			toast.success('Event created successfully!');
-			await goto('/events');
 		} catch (error: any) {
 			console.error('Failed to create event:', error);
 			toast.error(error.message || 'Failed to create event');
-			throw error; // Re-throw so the form can handle it
+			// Don't throw - user already navigated away
 		}
 	}
 </script>

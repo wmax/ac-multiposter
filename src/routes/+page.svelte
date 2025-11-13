@@ -1,39 +1,29 @@
 <script lang="ts">
 	import { authClient } from '$lib/auth-client';
-	import { onMount } from 'svelte';
 	import DashboardCard from '$lib/components/ui/DashboardCard.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { hasAccess, parseRoles, parseClaims } from '$lib/authorization';
 	import { FEATURES, getVisibleFeatures } from '$lib/features';
 
-	let user = $state<any>(null);
-	let loading = $state(true);
-	let userClaims = $state<any>(null);
-	let userRoles = $state<string[]>([]);
-
-	const isAdmin = () => userRoles.includes('admin');
-
-	onMount(async () => {
-		try {
-			const session = await authClient.getSession();
-			user = session?.data?.user;
-            
-			// Parse roles
-			userRoles = parseRoles(user);
-			userClaims = parseClaims(user);
-		} catch (error) {
-			console.error('Failed to load session:', error);
-		} finally {
-			loading = false;
-		}
-	});
+	// Use a promise to handle session loading asynchronously
+	let sessionPromise = $state(loadSession());
+	
+	async function loadSession() {
+		const session = await authClient.getSession();
+		const user = session?.data?.user;
+		return {
+			user,
+			userRoles: user ? parseRoles(user) : [],
+			userClaims: user ? parseClaims(user) : null
+		};
+	}
 </script>
 
 <div class="space-y-8">
-	{#if loading}
-		<div class="flex justify-center items-center min-h-[400px]">
-			<div class="text-gray-600">Loading...</div>
-		</div>
-	{:else if user}
+	{#await sessionPromise}
+		<Spinner message="Loading your dashboard..." />
+	{:then { user, userRoles, userClaims }}
+		{#if user}
 		<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
 			
 		<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -59,18 +49,29 @@
 				{/each}
 			</div>
 		</div>
-	{:else}
-		<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-			<svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-			</svg>
-			<h2 class="text-2xl font-bold text-gray-900 mb-2">Welcome to AC Multiposter</h2>
-			<p class="text-gray-600 mb-6">Sign in using the button in the top right to get started with your calendar management.</p>
-			<p class="text-sm text-gray-500">
-				AC Multiposter helps you manage and sync your Google Calendar and Microsoft 365 calendars in one place.
-			</p>
+		{:else}
+			<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+				<svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+				</svg>
+				<h2 class="text-2xl font-bold text-gray-900 mb-2">Welcome to AC Multiposter</h2>
+				<p class="text-gray-600 mb-6">Sign in using the button in the top right to get started with your calendar management.</p>
+				<p class="text-sm text-gray-500">
+					AC Multiposter helps you manage and sync your Google Calendar and Microsoft 365 calendars in one place.
+				</p>
+			</div>
+		{/if}
+	{:catch error}
+		<div class="bg-white rounded-lg shadow-sm border border-red-200 p-12 text-center">
+			<p class="text-red-600 mb-3">{error?.message || 'Failed to load session'}</p>
+			<button 
+				onclick={() => sessionPromise = loadSession()}
+				class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+			>
+				Retry
+			</button>
 		</div>
-	{/if}
+	{/await}
 </div>
 
 <style>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { create, type CreateSyncInput } from './create.remote';
+	import { list } from '../list.remote';
 	import { goto } from '$app/navigation';
 	import { Calendar, ArrowLeft, ArrowRight, ArrowLeftRight } from '@lucide/svelte';
 	import DashboardCard from '$lib/components/ui/DashboardCard.svelte';
@@ -30,14 +31,19 @@
 	try {
 		isSubmitting = true;
 		error = null;
-		const data = await create(input);
 		
-		// Show success toast and navigate to list
+		// Navigate immediately for better UX
+		const navigationPromise = goto('/synchronizations');
+		toast.success('Creating synchronization...');
+		
+		// Execute the create operation in the background
+		await create(input).updates(list());
+		await navigationPromise;
 		toast.success('Calendar synchronization created successfully!');
-		goto('/synchronizations');
 	} catch (e: any) {
 		error = e.message;
 		toast.error(e.message || 'Failed to create synchronization');
+		// Don't rethrow - user already navigated away
 	} finally {
 		isSubmitting = false;
 	}
