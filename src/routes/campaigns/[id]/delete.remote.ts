@@ -5,13 +5,13 @@ import { campaign } from '$lib/server/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { listCampaigns } from '../list.remote';
 import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
+import { deleteCampaignIdsSchema } from '$lib/validations/campaign';
 
 /**
  * Command: Delete one or more campaigns
  */
-const deleteCampaignsSchema = z.array(z.string()).check(z.minLength(1, 'Must provide at least one campaign ID'));
 
-export const deleteCampaigns = command(deleteCampaignsSchema, async (campaignIds: string[]) => {
+export const deleteCampaigns = command(deleteCampaignIdsSchema, async (campaignIds: string[]) => {
 	const user = getAuthenticatedUser();
 	ensureAccess(user, 'campaigns');
 	

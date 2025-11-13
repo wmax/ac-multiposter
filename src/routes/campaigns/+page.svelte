@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { page } from '$app/stores';
+	import { browser } from '$app/environment';
+	import { replaceState } from '$app/navigation';
 	import { listCampaigns } from './list.remote';
 	import { deleteCampaigns } from './[id]/delete.remote';
 	import type { Campaign } from './list.remote';
@@ -13,6 +16,31 @@
 		deleteItems: (ids) => deleteCampaigns(ids).updates(listCampaigns()),
 		itemName: 'campaign',
 		itemNamePlural: 'campaigns',
+	});
+
+	const focusedId = $derived($page.url.searchParams.get('focus'));
+	let highlightedId = $state<string | null>(null);
+
+	$effect(() => {
+		if (!browser) return;
+		const focus = focusedId;
+		if (!focus) return;
+		highlightedId = focus;
+		const currentUrl = new URL(window.location.href);
+		currentUrl.searchParams.delete('focus');
+		replaceState(`${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`, {
+			keepFocus: true,
+			noScroll: true,
+		});
+	});
+
+	$effect(() => {
+		if (!browser) return;
+		if (!highlightedId) return;
+		const timeout = setTimeout(() => {
+			highlightedId = null;
+		}, 4000);
+		return () => clearTimeout(timeout);
 	});
 </script>
 
@@ -39,6 +67,7 @@
 			editHref={`/campaigns/${campaign.id}?edit=1`}
 			onDelete={listPage.handleDelete}
 			deleteLabel="Delete"
+			highlight={campaign.id === highlightedId}
 		>
 			{#snippet title()}
 				<a 

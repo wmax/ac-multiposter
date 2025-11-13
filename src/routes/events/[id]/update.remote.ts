@@ -1,5 +1,4 @@
-import { command } from '$app/server';
-import { z } from 'zod/mini';
+import { form } from '$app/server';
 import { db } from '$lib/server/db';
 import { event } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -7,66 +6,24 @@ import { listEvents } from '../list.remote';
 import { getEvent } from './view.remote';
 import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
 import { syncService } from '$lib/server/sync/service';
+import { updateEventSchema } from '$lib/validations/event';
 
 /**
- * Schema for updating an event
- * All fields are optional except the ID
+ * Form function for updating an event
+ * Uses shared Zod schema with manual date/time validation (zod/mini doesn't support refine)
  */
-const updateEventSchema = z.object({
-	id: z.string(),
-	summary: z.optional(z.string()),
-	description: z.optional(z.string()),
-	location: z.optional(z.string()),
-	startDate: z.optional(z.string()),
-	startDateTime: z.optional(z.string()),
-	startTimeZone: z.optional(z.string()),
-	endDate: z.optional(z.string()),
-	endDateTime: z.optional(z.string()),
-	endTimeZone: z.optional(z.string()),
-	eventType: z.optional(z.string()),
-	status: z.optional(z.string()),
-	visibility: z.optional(z.string()),
-	transparency: z.optional(z.string()),
-	colorId: z.optional(z.string()),
-	recurrence: z.optional(z.array(z.string())),
-	attendees: z.optional(z.array(z.object({
-		email: z.string(),
-		displayName: z.optional(z.string()),
-		optional: z.optional(z.boolean()),
-		responseStatus: z.optional(z.string()),
-	}))),
-	reminders: z.optional(z.object({
-		useDefault: z.boolean(),
-		overrides: z.optional(z.array(z.object({
-			method: z.string(),
-			minutes: z.number(),
-		}))),
-	})),
-	guestsCanInviteOthers: z.optional(z.boolean()),
-	guestsCanModify: z.optional(z.boolean()),
-	guestsCanSeeOtherGuests: z.optional(z.boolean()),
-});
-
-/**
- * Command: Update an event
- */
-export const updateEvent = command(updateEventSchema, async (data) => {
+export const updateEvent = form(updateEventSchema, async (data) => {
 	const user = getAuthenticatedUser();
 	ensureAccess(user, 'events');
 
 	// Validate date/time ranges
-	// For all-day events
-	if (data.startDate && data.endDate) {
-		if (data.endDate < data.startDate) {
-			throw new Error('End date must be the same as or after the start date');
-		}
+	if (data.startDate && data.endDate && data.endDate < data.startDate) {
+		throw new Error('End date must be the same as or after the start date');
 	}
 	
-	// For date-time events
 	if (data.startDateTime && data.endDateTime) {
 		const startDateTime = new Date(data.startDateTime);
 		const endDateTime = new Date(data.endDateTime);
-		
 		if (endDateTime <= startDateTime) {
 			throw new Error('End date and time must be after the start date and time');
 		}
@@ -91,7 +48,12 @@ export const updateEvent = command(updateEventSchema, async (data) => {
 	if (data.colorId !== undefined) updateData.colorId = data.colorId;
 	if (data.recurrence !== undefined) updateData.recurrence = data.recurrence as any;
 	if (data.attendees !== undefined) updateData.attendees = data.attendees as any;
-	if (data.reminders !== undefined) updateData.reminders = data.reminders as any;
+	if (data.reminders !== undefined) {
+		// Parse reminders if it's a JSON string
+		updateData.reminders = typeof data.reminders === 'string' 
+			? JSON.parse(data.reminders) 
+			: data.reminders;
+	}
 	if (data.guestsCanInviteOthers !== undefined) updateData.guestsCanInviteOthers = data.guestsCanInviteOthers;
 	if (data.guestsCanModify !== undefined) updateData.guestsCanModify = data.guestsCanModify;
 	if (data.guestsCanSeeOtherGuests !== undefined) updateData.guestsCanSeeOtherGuests = data.guestsCanSeeOtherGuests;

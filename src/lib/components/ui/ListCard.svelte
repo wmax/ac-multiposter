@@ -17,6 +17,7 @@
 		editHref?: string;
 		onDelete?: (id: string) => Promise<void>;
 		deleteLabel?: string;
+		highlight?: boolean;
 	}
 
 	let { 
@@ -32,7 +33,8 @@
 		badge,
 		editHref,
 		onDelete,
-		deleteLabel = 'Delete'
+		deleteLabel = 'Delete',
+		highlight = false
 	}: Props = $props();
 	
 	let deleting = $state(false);
@@ -57,7 +59,7 @@
 </script>
 
 <div
-	class="bg-white shadow rounded-lg p-6 flex items-start gap-4 cursor-pointer hover:bg-gray-50"
+	class={`bg-white shadow rounded-lg p-6 flex items-start gap-4 cursor-pointer hover:bg-gray-50 transition-shadow ${highlight ? 'ring-2 ring-blue-400 ring-offset-2' : ''}`}
 	onclick={handleCardClick}
 	role="link"
 	aria-label="Open details"
@@ -128,6 +130,7 @@
 			{#if editHref}
 				<a
 					href={editHref}
+					data-sveltekit-preload-code="hover"
 					class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-center"
 					onclick={(e) => e.stopPropagation()}
 				>

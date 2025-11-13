@@ -1,10 +1,13 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  // Component now only provides form contents, not the form tag itself
+  const props = $props<{ 
+    initial?: any; 
+    submitLabel?: string; 
+    onCancel?: (() => void) | null 
+  }>();
   
-  const props = $props<{ initial?: any; submitLabel?: string; onSubmit?: (data: any) => Promise<void> | void; onCancel?: (() => void) | null }>();
   const initial = props.initial || {};
   const submitLabel = props.submitLabel || 'Save';
-  const onSubmit = props.onSubmit;
   const onCancel = props.onCancel || null;
 
   let isAllDay = $state(!!initial.startDate && !initial.startDateTime);
@@ -13,196 +16,83 @@
   let reminders = $state(
     initial.reminders?.overrides?.length ? initial.reminders.overrides : [{ method: 'popup', minutes: 10 }]
   );
-  
-  // Field-level error tracking
-  let fieldErrors = $state<Record<string, string>>({});
-  let generalError = $state<string | null>(null);
 
+  // Calculate smart defaults
+  const now = new Date();
+  const defaultStartDate = now.toISOString().split('T')[0];
+  const defaultStartTime = now.toTimeString().slice(0, 5);
+  
+  // Calculate event duration from initial data (for edit mode)
+  let initialDurationMinutes = 60; // default 1 hour for new events
+  if (initial.startDateTime && initial.endDateTime) {
+    const start = new Date(initial.startDateTime);
+    const end = new Date(initial.endDateTime);
+    initialDurationMinutes = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
+  }
+
+  // Form field values with smart defaults
+  let startDate = $state(initial.startDate || initial.startDateTime?.split('T')[0] || defaultStartDate);
+  let startTime = $state(initial.startDateTime?.split('T')[1]?.slice(0, 5) || defaultStartTime);
+  let endDate = $state(initial.endDate || initial.endDateTime?.split('T')[0] || '');
+  let endTime = $state(initial.endDateTime?.split('T')[1]?.slice(0, 5) || '');
+
+  // Compute end date/time based on start (maintains duration for edits, 1 hour for new)
+  const defaultEndDate = $derived(startDate);
+  const defaultEndTime = $derived(() => {
+    if (!startDate || !startTime) return '';
+    const start = new Date(`${startDate}T${startTime}:00`);
+    const end = new Date(start.getTime() + initialDurationMinutes * 60000);
+    return end.toTimeString().slice(0, 5);
+  });
+
+  // Use user value if set, otherwise use computed default
+  const effectiveEndDate = $derived(endDate || defaultEndDate);
+  const effectiveEndTime = $derived(endTime || defaultEndTime());
+  
   const today = new Date().toISOString().split('T')[0];
-  const now = new Date().toTimeString().slice(0, 5);
   
   // Get user's browser timezone
   const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  
-  // Reactive state for form fields to enable validation on change
-  let startDate = $state(initial.startDate || toDatePart(initial.startDateTime, today));
-  let startTime = $state(toTimePart(initial.startDateTime, now));
-  let endDate = $state(initial.endDate || toDatePart(initial.endDateTime, today));
-  let endTime = $state(toTimePart(initial.endDateTime, ''));
+
+  // Compute datetime values reactively
+  const computedStartDateTime = $derived(
+    !isAllDay && startDate && startTime ? `${startDate}T${startTime}:00` : null
+  );
+  const computedEndDateTime = $derived(
+    !isAllDay && hasEndTime && effectiveEndDate && effectiveEndTime 
+      ? `${effectiveEndDate}T${effectiveEndTime}:00` 
+      : null
+  );
+  const computedReminders = $derived(
+    JSON.stringify(
+      useDefaultReminders 
+        ? { useDefault: true } 
+        : { useDefault: false, overrides: reminders }
+    )
+  );
 
   function addReminder() {
     reminders = [...reminders, { method: 'popup', minutes: 10 }];
   }
-  function removeReminder(index: number) {
-    reminders = reminders.filter((item: { method: string; minutes: number }, i: number) => i !== index);
-  }
-
-  function validateDateTimes(data: any): boolean {
-    fieldErrors = {};
-    
-    // Validate all-day events
-    if (isAllDay && hasEndTime) {
-      const startDate = data.startDate;
-      const endDate = data.endDate;
-      
-      if (startDate && endDate && endDate < startDate) {
-        fieldErrors.endDate = 'End date must be the same as or after the start date';
-        return false;
-      }
-    }
-    
-    // Validate date-time events
-    if (!isAllDay && hasEndTime) {
-      const startDate = data.startDate;
-      const startTime = data.startTime;
-      const endDate = data.endDate;
-      const endTime = data.endTime;
-      
-      if (startDate && startTime && endDate && endTime) {
-        const startDateTime = new Date(`${startDate}T${startTime}`);
-        const endDateTime = new Date(`${endDate}T${endTime}`);
-        
-        if (endDateTime <= startDateTime) {
-          // Determine which field is actually the problem
-          if (endDate < startDate) {
-            // The date itself is wrong
-            fieldErrors.endDate = 'End date must be after the start date';
-          } else if (endDate === startDate && endTime <= startTime) {
-            // Same date, but time is wrong
-            fieldErrors.endTime = 'End time must be after the start time';
-          } else {
-            // Edge case: different dates but still invalid (shouldn't happen with date inputs)
-            fieldErrors.endDate = 'End date and time must be after the start date and time';
-            fieldErrors.endTime = 'End date and time must be after the start date and time';
-          }
-          return false;
-        }
-      }
-    }
-    
-    return true;
-  }
-
   
-  // Reactive validation on field change
-  $effect(() => {
-    // Run validation whenever date/time fields change
-    // Read the reactive values
-    const currentStartDate = startDate;
-    const currentStartTime = startTime;
-    const currentEndDate = endDate;
-    const currentEndTime = endTime;
-    const currentHasEndTime = hasEndTime;
-    
-    // Use untrack to prevent fieldErrors modifications from triggering this effect
-    untrack(() => {
-      if (currentHasEndTime && (currentStartDate || currentStartTime || currentEndDate || currentEndTime)) {
-        const data = {
-          startDate: currentStartDate,
-          startTime: currentStartTime,
-          endDate: currentEndDate,
-          endTime: currentEndTime,
-        };
-        validateDateTimes(data);
-      }
-    });
-  });  async function handleSubmit(event: SubmitEvent) {
-    event.preventDefault();
-    fieldErrors = {};
-    generalError = null;
-    
-    const form = event.target as HTMLFormElement;
-    const formData = new FormData(form);
-
-    const data: any = {
-      summary: formData.get('summary'),
-      description: formData.get('description') || undefined,
-      location: formData.get('location') || undefined,
-      eventType: formData.get('eventType') || 'default',
-      visibility: formData.get('visibility') || 'default',
-      transparency: formData.get('transparency') || 'opaque',
-      colorId: formData.get('colorId') || undefined,
-    };
-
-    if (isAllDay) {
-      data.startDate = formData.get('startDate');
-      if (hasEndTime) {
-        data.endDate = formData.get('endDate');
-      }
-    } else {
-      const startDate = formData.get('startDate') as string;
-      const startTime = formData.get('startTime') as string;
-      if (startDate && startTime) {
-        data.startDateTime = `${startDate}T${startTime}:00`;
-        data.startDate = startDate;
-        data.startTime = startTime;
-      }
-      data.startTimeZone = formData.get('startTimeZone') || undefined;
-
-      if (hasEndTime) {
-        const endDate = formData.get('endDate') as string;
-        const endTime = formData.get('endTime') as string;
-        if (endDate && endTime) {
-          data.endDateTime = `${endDate}T${endTime}:00`;
-          data.endDate = endDate;
-          data.endTime = endTime;
-        }
-        data.endTimeZone = formData.get('endTimeZone') || undefined;
-      }
-    }
-
-    // Validate date/time ranges
-    if (!validateDateTimes(data)) {
-      return;
-    }
-
-    data.reminders = {
-      useDefault: useDefaultReminders,
-      overrides: useDefaultReminders ? undefined : reminders,
-    };
-
-    data.guestsCanInviteOthers = formData.get('guestsCanInviteOthers') === 'on';
-    data.guestsCanModify = formData.get('guestsCanModify') === 'on';
-    data.guestsCanSeeOtherGuests = formData.get('guestsCanSeeOtherGuests') === 'on';
-
-    try {
-      await onSubmit?.(data);
-    } catch (error: any) {
-      generalError = error.message || 'An error occurred while saving the event';
-    }
-  }
-
-  // Helpers to prefill inputs from initial
-  function toDatePart(value: any, fallback: string = '') {
-    if (!value) return fallback;
-    try {
-      return new Date(value).toISOString().slice(0, 10);
-    } catch {
-      return fallback;
-    }
-  }
-  function toTimePart(value: any, fallback: string = '') {
-    if (!value) return fallback;
-    try {
-      return new Date(value).toISOString().slice(11, 16);
-    } catch {
-      return fallback;
-    }
+  function removeReminder(index: number) {
+    reminders = reminders.filter((item: { method: string; minutes: number}, i: number) => i !== index);
   }
 </script>
 
-<form onsubmit={handleSubmit} class="space-y-6">
-  <!-- General Error -->
-  {#if generalError}
-    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-      <div class="flex items-center gap-2 text-red-600">
-        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <p class="font-medium">{generalError}</p>
-      </div>
-    </div>
+<!-- Hidden ID field for updates -->
+{#if initial.id}
+  <input type="hidden" name="id" value={initial.id} />
+{/if}
+
+  <!-- Hidden computed fields -->
+  {#if computedStartDateTime}
+    <input type="hidden" name="startDateTime" value={computedStartDateTime} />
   {/if}
+  {#if computedEndDateTime}
+    <input type="hidden" name="endDateTime" value={computedEndDateTime} />
+  {/if}
+  <input type="hidden" name="reminders" value={computedReminders} />
 
   <!-- Basic Information -->
   <div class="bg-white shadow rounded-lg p-6 space-y-4">
@@ -216,9 +106,9 @@
         name="summary"
         type="text"
         required
-        value={initial.summary || ''}
         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         placeholder="Event title"
+        value={initial.summary || ''}
       />
     </div>
 
@@ -290,75 +180,29 @@
         <div>
           <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">
             End Date
-            {#if fieldErrors.endDate}
-              <span class="text-red-600 text-xs ml-1">⚠</span>
-            {/if}
           </label>
-          <div class="relative group">
-            <input 
-              id="endDate" 
-              name="endDate" 
-              type="date" 
-              bind:value={endDate}
-              class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 {fieldErrors.endDate ? 'border-red-500 bg-red-50' : 'border-gray-300'}" 
-            />
-            {#if fieldErrors.endDate}
-              <div class="absolute left-0 right-0 top-full mt-1 z-10 hidden group-focus-within:block">
-                <div class="bg-red-600 text-white text-sm rounded-lg px-3 py-2 shadow-lg">
-                  <div class="flex items-start gap-2">
-                    <svg class="h-4 w-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                    </svg>
-                    <span>{fieldErrors.endDate}</span>
-                  </div>
-                  <div class="absolute -top-1 left-4 w-2 h-2 bg-red-600 transform rotate-45"></div>
-                </div>
-              </div>
-              <p class="text-red-600 text-xs mt-1 flex items-center gap-1">
-                <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                </svg>
-                {fieldErrors.endDate}
-              </p>
-            {/if}
-          </div>
+          <input 
+            id="endDate" 
+            name="endDate" 
+            type="date" 
+            value={effectiveEndDate}
+            oninput={(e) => endDate = e.currentTarget.value}
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
         </div>
         {#if !isAllDay}
           <div>
             <label for="endTime" class="block text-sm font-medium text-gray-700 mb-1">
               End Time
-              {#if fieldErrors.endTime}
-                <span class="text-red-600 text-xs ml-1">⚠</span>
-              {/if}
             </label>
-            <div class="relative group">
-              <input 
-                id="endTime" 
-                name="endTime" 
-                type="time" 
-                bind:value={endTime}
-                class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 {fieldErrors.endTime ? 'border-red-500 bg-red-50' : 'border-gray-300'}" 
-              />
-              {#if fieldErrors.endTime}
-                <div class="absolute left-0 right-0 top-full mt-1 z-10 hidden group-focus-within:block">
-                  <div class="bg-red-600 text-white text-sm rounded-lg px-3 py-2 shadow-lg">
-                    <div class="flex items-start gap-2">
-                      <svg class="h-4 w-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                      </svg>
-                      <span>{fieldErrors.endTime}</span>
-                    </div>
-                    <div class="absolute -top-1 left-4 w-2 h-2 bg-red-600 transform rotate-45"></div>
-                  </div>
-                </div>
-                <p class="text-red-600 text-xs mt-1 flex items-center gap-1">
-                  <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                  </svg>
-                  {fieldErrors.endTime}
-                </p>
-              {/if}
-            </div>
+            <input 
+              id="endTime" 
+              name="endTime" 
+              type="time" 
+              value={effectiveEndTime}
+              oninput={(e) => endTime = e.currentTarget.value}
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
           </div>
         {/if}
       </div>
@@ -432,7 +276,7 @@
     </div>
     {#if !useDefaultReminders}
       <div class="space-y-3">
-        {#each reminders as reminder, i}
+          {#each reminders as reminder, i (i)}
           <div class="flex gap-2">
             <select bind:value={reminder.method} class="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
               <option value="popup">Popup</option>
@@ -474,9 +318,13 @@
     {:else}
       <a href="/events" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">Cancel</a>
     {/if}
-    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">{submitLabel}</button>
+    <button 
+      type="submit" 
+      class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+    >
+      {submitLabel}
+    </button>
   </div>
-</form>
 
 <style>
 /* component-scoped if needed */
