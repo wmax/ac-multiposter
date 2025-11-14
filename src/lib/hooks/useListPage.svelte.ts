@@ -51,6 +51,7 @@ export function createListPage<T extends { id: string }>(config: ListPageConfig<
 	async function handleDelete(id: string) {
 		try {
 			await deleteItems([id]);
+			selection.remove?.(id);
 			toast.success(`${itemName.charAt(0).toUpperCase() + itemName.slice(1)} deleted successfully!`);
 			refresh();
 		} catch (error: any) {
@@ -60,7 +61,9 @@ export function createListPage<T extends { id: string }>(config: ListPageConfig<
 	
 	return {
 		selection,
-		itemsPromise,
+		get itemsPromise() {
+			return itemsPromise;
+		},
 		refresh,
 		handleBulkDelete,
 		handleDelete,

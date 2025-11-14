@@ -5,7 +5,7 @@ import { z } from 'zod/mini';
  * Does not include id as it's generated server-side.
  */
 export const createCampaignSchema = z.object({
-  name: z.string(),
+  name: z.string().check(z.minLength(1, 'Campaign name is required')),
   content: z.optional(z.string()),
 });
 
@@ -15,7 +15,7 @@ export const createCampaignSchema = z.object({
  */
 export const updateCampaignSchema = z.object({
   id: z.string(),
-  name: z.optional(z.string()),
+  name: z.string().check(z.minLength(1, 'Campaign name is required')),
   content: z.optional(z.string()),
 });
 

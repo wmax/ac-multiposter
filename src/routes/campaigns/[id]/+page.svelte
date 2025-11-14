@@ -9,11 +9,17 @@
 	import type { Campaign } from '../list.remote';
 	import { listCampaigns } from '../list.remote';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
+	import CampaignForm from '$lib/components/campaigns/CampaignForm.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
 
 	const campaignId = $derived($page.params.id || '');
 	const shouldAutoEdit = $derived($page.url.searchParams.get('edit') === '1');
 	const campaignPromise = $derived(getCampaign(campaignId));
+
+	let lastHandledUpdateResult: typeof updateCampaign.result | undefined = updateCampaign.result;
+	let completedUpdateSubmissions = $state(0);
+	let handledUpdateSubmission = $state(0);
+	let lastUpdatePendingCount = $state(updateCampaign.pending);
 
 	let isEditMode = $state(false);
 	let isDeleting = $state(false);
@@ -46,8 +52,23 @@
 	}
 
 	$effect(() => {
+		const pending = updateCampaign.pending;
+		if (pending === 0 && lastUpdatePendingCount > 0) {
+			completedUpdateSubmissions += 1;
+		}
+		lastUpdatePendingCount = pending;
+	});
+
+	$effect(() => {
 		const result = updateCampaign.result;
-		if (!result) return;
+		if (!result || result === lastHandledUpdateResult) return;
+		if (
+			completedUpdateSubmissions === 0 ||
+			handledUpdateSubmission === completedUpdateSubmissions
+		)
+			return;
+		handledUpdateSubmission = completedUpdateSubmissions;
+		lastHandledUpdateResult = result;
 		
 		untrack(() => {
 			if (result.success) {
@@ -170,49 +191,13 @@
 					{#if isEditMode}
 						<div class="bg-white shadow rounded-lg p-6">
 							<h2 class="text-xl font-semibold mb-4">Edit Campaign</h2>
-							<form {...updateCampaign} class="space-y-4">
-								<!-- Hidden id field required by schema -->
-								<input {...updateCampaign.fields.id.as('text')} type="hidden" />
-								
-								<div>
-									<label for="edit-name" class="block text-sm font-medium text-gray-700 mb-2">
-										Campaign Name
-									</label>
-									<input
-										{...updateCampaign.fields.name.as('text')}
-										class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-									/>
-								</div>
-
-								<div>
-									<label for="edit-content" class="block text-sm font-medium text-gray-700 mb-2">
-										Content (JSON)
-									</label>
-									<textarea
-										{...updateCampaign.fields.content.as('text')}
-										rows="12"
-										class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-									></textarea>
-								</div>
-
-								<div class="flex gap-3">
-									<button
-										type="submit"
-										disabled={updateCampaign.pending > 0}
-										class="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-									>
-										{updateCampaign.pending > 0 ? 'Saving...' : 'Save Changes'}
-									</button>
-
-									<button
-										type="button"
-										onclick={cancelEdit}
-										class="px-6 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
-									>
-										Cancel
-									</button>
-								</div>
-							</form>
+							<CampaignForm
+								form={updateCampaign}
+								mode="edit"
+								includeIdField
+								onCancel={cancelEdit}
+								class="space-y-4"
+							/>
 						</div>
 					{:else}
 						<div class="bg-white shadow rounded-lg p-6">

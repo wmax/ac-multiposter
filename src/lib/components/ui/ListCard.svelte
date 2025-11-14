@@ -53,8 +53,20 @@
 			deleting = false;
 		}
 	}
-	function handleCardClick() {
-		if (href) goto(href);
+	function handleCardClick(event?: MouseEvent) {
+		if (!href) return;
+
+		if (event?.defaultPrevented) return;
+
+		const target = event?.target;
+		if (target instanceof HTMLElement) {
+			const interactive = target.closest('button, a, input, textarea, select, label, [role="button"], [role="link"]');
+			if (interactive && interactive !== event?.currentTarget) {
+				return;
+			}
+		}
+
+		goto(href);
 	}
 </script>
 

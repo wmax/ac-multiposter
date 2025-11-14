@@ -78,15 +78,33 @@
 	<form {...createEvent} class="space-y-6">
 		<!-- Hidden computed fields -->
 		{#if computedStartDateTime}
-			<input type="hidden" {...createEvent.fields.startDateTime.as('text')} value={computedStartDateTime} />
+			<input {...createEvent.fields.startDateTime.as('hidden', computedStartDateTime)} />
 		{/if}
 		{#if computedEndDateTime}
-			<input type="hidden" {...createEvent.fields.endDateTime.as('text')} value={computedEndDateTime} />
+			<input {...createEvent.fields.endDateTime.as('hidden', computedEndDateTime)} />
 		{/if}
-		<input {...createEvent.fields.reminders.as('text')} value={computedReminders} />
-		<input type="hidden" {...createEvent.fields.guestsCanInviteOthers.as('checkbox')} checked={guestsCanInviteOthers} />
-		<input type="hidden" {...createEvent.fields.guestsCanModify.as('checkbox')} checked={guestsCanModify} />
-		<input type="hidden" {...createEvent.fields.guestsCanSeeOtherGuests.as('checkbox')} checked={guestsCanSeeOtherGuests} />
+		<input type="hidden" name="reminders" value={computedReminders} />
+		<input
+			{...createEvent.fields.guestsCanInviteOthers.as('checkbox')}
+			checked={guestsCanInviteOthers}
+			class="sr-only"
+			aria-hidden="true"
+			tabindex="-1"
+		/>
+		<input
+			{...createEvent.fields.guestsCanModify.as('checkbox')}
+			checked={guestsCanModify}
+			class="sr-only"
+			aria-hidden="true"
+			tabindex="-1"
+		/>
+		<input
+			{...createEvent.fields.guestsCanSeeOtherGuests.as('checkbox')}
+			checked={guestsCanSeeOtherGuests}
+			class="sr-only"
+			aria-hidden="true"
+			tabindex="-1"
+		/>
 
 		<!-- Basic Information -->
 		<div class="bg-white shadow rounded-lg p-6 space-y-4">
@@ -223,7 +241,7 @@
 						class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
 						readonly
 					/>
-					<input type="hidden" {...createEvent.fields.endTimeZone.as('text')} value={browserTimezone} />
+					<input {...createEvent.fields.endTimeZone.as('hidden', browserTimezone)} />
 				</div>
 			{/if}
 		</div>

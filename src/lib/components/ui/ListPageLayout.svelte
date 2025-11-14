@@ -26,6 +26,8 @@
 			toggleSelection: (id: string) => void;
 			getSelectedArray: () => string[];
 		};
+		/** Version used to force re-render when selection changes */
+		selectionVersion?: number;
 		/** Callback for bulk delete */
 		onBulkDelete: () => Promise<void>;
 		/** URL for creating new item (e.g., "/events/new") */
@@ -53,6 +55,7 @@
 		title,
 		itemsPromise,
 		selection,
+		selectionVersion = 0,
 		onBulkDelete,
 		newItemHref,
 		newItemLabel,
@@ -87,15 +90,17 @@
 					<p class="text-gray-600 mt-2">{subtitle}</p>
 				{/if}
 			</div>
-			<BulkActionToolbar
-				selectedCount={selection.count}
-				totalCount={items.length}
-				onSelectAll={() => selection.selectAll(items)}
-				onDeselectAll={() => selection.deselectAll()}
-				onDelete={onBulkDelete}
-				{newItemHref}
-				{newItemLabel}
-			/>
+			{#key selectionVersion}
+				<BulkActionToolbar
+					selectedCount={selection.count}
+					totalCount={items.length}
+					onSelectAll={() => selection.selectAll(items)}
+					onDeselectAll={() => selection.deselectAll()}
+					onDelete={onBulkDelete}
+					{newItemHref}
+					{newItemLabel}
+				/>
+			{/key}
 		</div>
 
 		<div class="grid gap-4">
