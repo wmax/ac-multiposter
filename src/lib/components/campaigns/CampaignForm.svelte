@@ -14,6 +14,8 @@
 		includeIdField?: boolean;
 		cancelHref?: string;
 		onCancel?: () => void;
+		onFormSuccess?: () => void;
+		onFormError?: () => void;
 	}
 
 	let {
@@ -24,6 +26,8 @@
 		includeIdField = false,
 		cancelHref,
 		onCancel,
+		onFormSuccess,
+		onFormError,
 		class: className = '',
 		...rest
 	}: Props = $props();
@@ -34,6 +38,18 @@
 	// Use preflight schema for client-side validation
 	const schema = mode === 'create' ? createCampaignSchema : updateCampaignSchema;
 	const formWithValidation = form.preflight(schema);
+
+	// Apply enhance if callbacks provided, but keep formWithValidation for state checks
+	const formAttributes = onFormSuccess || onFormError 
+		? formWithValidation.enhance(async ({ submit }) => {
+			try {
+				await submit();
+				onFormSuccess?.();
+			} catch (error) {
+				onFormError?.();
+			}
+		})
+		: formWithValidation;
 
 	// Show toast on form submit attempt with validation errors
 	function handleSubmit(event: SubmitEvent) {
@@ -52,7 +68,7 @@
 	}
 </script>
 
-<form {...formWithValidation} {...rest} class={className || 'space-y-6'} onsubmit={handleSubmit}>
+<form {...formAttributes} {...rest} class={className || 'space-y-6'} onsubmit={handleSubmit}>
 	{#if includeIdField}
 		<input {...formWithValidation.fields.id.as('text')} class="hidden" />
 	{/if}

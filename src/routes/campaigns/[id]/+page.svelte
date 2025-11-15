@@ -2,7 +2,6 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
-	import { untrack } from 'svelte';
 	import { getCampaign } from './view.remote';
 	import { updateCampaign } from './update.remote';
 	import { deleteCampaigns } from './delete.remote';
@@ -15,11 +14,6 @@
 	const campaignId = $derived($page.params.id || '');
 	const shouldAutoEdit = $derived($page.url.searchParams.get('edit') === '1');
 	const campaignPromise = $derived(getCampaign(campaignId));
-
-	let lastHandledUpdateResult: typeof updateCampaign.result | undefined = updateCampaign.result;
-	let completedUpdateSubmissions = $state(0);
-	let handledUpdateSubmission = $state(0);
-	let lastUpdatePendingCount = $state(updateCampaign.pending);
 
 	let isEditMode = $state(false);
 	let isDeleting = $state(false);
@@ -38,7 +32,6 @@
 	}
 
 	function startEdit(campaign: Campaign) {
-		// Pre-populate the form with current values
 		updateCampaign.fields.set({
 			id: campaign.id,
 			name: campaign.name,
@@ -50,36 +43,6 @@
 	function cancelEdit() {
 		isEditMode = false;
 	}
-
-	$effect(() => {
-		const pending = updateCampaign.pending;
-		if (pending === 0 && lastUpdatePendingCount > 0) {
-			completedUpdateSubmissions += 1;
-		}
-		lastUpdatePendingCount = pending;
-	});
-
-	$effect(() => {
-		const result = updateCampaign.result;
-		if (!result || result === lastHandledUpdateResult) return;
-		if (
-			completedUpdateSubmissions === 0 ||
-			handledUpdateSubmission === completedUpdateSubmissions
-		)
-			return;
-		handledUpdateSubmission = completedUpdateSubmissions;
-		lastHandledUpdateResult = result;
-		
-		untrack(() => {
-			if (result.success) {
-				toast.success('Campaign updated successfully!');
-				isEditMode = false;
-				goto('/campaigns');
-			} else if (result.error) {
-				toast.error(`Failed to update campaign: ${result.error}`);
-			}
-		});
-	});
 
 	$effect(() => {
 		const currentPromise = campaignPromise;
@@ -106,9 +69,9 @@
 	
 	function handleDeleteWithConfirm(campaign: Campaign) {
 		if (!confirm(`Delete campaign "${campaign.name}"?`)) {
-			return false; // Cancel delete
+			return false;
 		}
-		return true; // Proceed with delete
+		return true;
 	}
 </script>
 
@@ -194,6 +157,14 @@
 								mode="edit"
 								includeIdField
 								onCancel={cancelEdit}
+								onFormSuccess={() => {
+									toast.success('Campaign updated successfully!');
+									isEditMode = false;
+									goto('/campaigns');
+								}}
+								onFormError={() => {
+									toast.error('Failed to update campaign');
+								}}
 								class="space-y-4"
 							/>
 						</div>
