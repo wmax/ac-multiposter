@@ -17,6 +17,7 @@
 		onFormSuccess?: () => void;
 		onFormError?: () => void;
 		initialValues?: Record<string, unknown>;
+		updates?: any | any[];
 	}
 
 	let {
@@ -30,6 +31,7 @@
 		onFormSuccess,
 		onFormError,
 		initialValues,
+		updates,
 		class: className = '',
 		...rest
 	}: Props = $props();
@@ -51,10 +53,16 @@
 	}
 
 	// Apply enhance if callbacks provided, but keep formWithValidation for state checks
-	const formAttributes = onFormSuccess || onFormError 
+	const formAttributes = onFormSuccess || onFormError || updates
 		? formWithValidation.enhance(async ({ submit }) => {
 			try {
-				await submit();
+				const s = submit();
+				if (updates) {
+					const list = Array.isArray(updates) ? updates : [updates];
+					await s.updates(...list);
+				} else {
+					await s;
+				}
 				onFormSuccess?.();
 			} catch (error) {
 				onFormError?.();
@@ -92,7 +100,7 @@
 				? 'border-red-500'
 				: 'border-gray-300'}"
 			placeholder="Enter campaign name"
-			onchange={() => formWithValidation.validate()}
+			onblur={() => formWithValidation.validate()}
 		/>
 		{#each formWithValidation.fields.name.issues() ?? [] as issue}
 			<p class="mt-1 text-sm text-red-600">{issue.message}</p>
@@ -108,7 +116,7 @@
 				? 'border-red-500'
 				: 'border-gray-300'}"
 			placeholder="{'{}'}"
-			onchange={() => formWithValidation.validate()}
+			onblur={() => formWithValidation.validate()}
 		></textarea>
 		{#each formWithValidation.fields.content.issues() ?? [] as issue}
 			<p class="mt-1 text-sm text-red-600">{issue.message}</p>

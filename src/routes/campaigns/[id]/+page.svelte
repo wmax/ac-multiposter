@@ -67,7 +67,7 @@
 										return () => {};
 									}
 									isDeleting = true;
-									return async ({ result }) => {
+									return async ({ result }: any) => {
 										if (result.type === 'success') {
 											await deleteCampaigns([campaign.id]).updates(listCampaigns());
 											toast.success('Campaign deleted successfully!');

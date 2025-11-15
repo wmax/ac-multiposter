@@ -9,10 +9,6 @@
 
 	let itemsPromise = $state<Promise<Campaign[]>>(listCampaigns());
 
-	function refreshItems() {
-		itemsPromise = listCampaigns();
-	}
-
 	const listPage = createListPage<Campaign>({
 		fetchItems: listCampaigns,
 		deleteItems: (ids) => deleteCampaigns(ids).updates(listCampaigns()),
@@ -22,12 +18,10 @@
 
 	async function handleBulkDelete() {
 		await listPage.handleBulkDelete();
-		refreshItems();
 	}
 
 	async function handleDelete(id: string) {
 		await listPage.handleDelete(id);
-		refreshItems();
 	}
 </script>
 
@@ -51,7 +45,7 @@
 				id={campaign.id}
 				selected={listPage.selection.isSelected(campaign.id)}
 				onToggle={listPage.selection.toggleSelection}
-				editHref={`/campaigns/${campaign.id}?edit=1`}
+				editHref={`/campaigns/${campaign.id}`}
 				onDelete={handleDelete}
 				deleteLabel="Delete"
 			>

@@ -1,4 +1,3 @@
-import { z } from 'zod/mini';
 import { form } from '$app/server';
 import { db } from '$lib/server/db';
 import { campaign } from '$lib/server/db/schema';
@@ -35,9 +34,6 @@ export const createCampaign = form(createCampaignSchema, async (data) => {
 			createdAt: row.createdAt.toISOString(),
 			updatedAt: row.updatedAt.toISOString(),
 		};
-		
-		// Refresh the list query
-		await listCampaigns().refresh();
 		
 		return { success: true, campaign: newCampaign };
 	} catch (error: any) {

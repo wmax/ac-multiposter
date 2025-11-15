@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { createCampaign } from './create.remote';
+    import { listCampaigns } from '../list.remote';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 	import CampaignForm from '$lib/components/campaigns/CampaignForm.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
@@ -19,6 +20,7 @@
 			form={createCampaign}
 			mode="create" 
 			cancelHref="/campaigns"
+			updates={listCampaigns()}
 			onFormSuccess={() => {
 				toast.success('Campaign created successfully!');
 				goto('/campaigns');

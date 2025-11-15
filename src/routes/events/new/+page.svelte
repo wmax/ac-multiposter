@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { createEvent } from './create.remote';
+    import { listEvents } from '../list.remote';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
 	
@@ -75,7 +76,18 @@
 	<h1 class="text-3xl font-bold mb-6">Create New Event</h1>
 	
 	<!-- Form with form object spread for remote function -->
-	<form {...createEvent} class="space-y-6">
+	<form
+		{...createEvent.enhance(async ({ submit }) => {
+			try {
+				await submit().updates(listEvents());
+				toast.success('Event created successfully!');
+				goto('/events');
+			} catch (e) {
+				toast.error('Failed to create event');
+			}
+		})}
+		class="space-y-6"
+	>
 		<!-- Hidden computed fields -->
 		{#if computedStartDateTime}
 			<input {...createEvent.fields.startDateTime.as('hidden', computedStartDateTime)} />
