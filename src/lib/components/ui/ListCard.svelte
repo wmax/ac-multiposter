@@ -4,7 +4,7 @@
 
 	interface Props {
 		id: string;
-		href: string;
+		href?: string;
 		selected?: boolean;
 		onToggle?: (id: string) => void;
 		title: string | Snippet;
@@ -70,14 +70,15 @@
 	}
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
-	class={`bg-white shadow rounded-lg p-6 flex items-start gap-4 cursor-pointer hover:bg-gray-50 transition-shadow ${highlight ? 'ring-2 ring-blue-400 ring-offset-2' : ''}`}
+	class={`bg-white shadow rounded-lg p-6 flex items-start gap-4 transition-shadow ${highlight ? 'ring-2 ring-blue-400 ring-offset-2' : ''} ${href ? 'cursor-pointer hover:bg-gray-50' : ''}`}
 	onclick={handleCardClick}
-	role="link"
-	aria-label="Open details"
-	tabindex="0"
+	role={href ? 'button' : undefined}
+	aria-label={href ? 'Open details' : undefined}
+	tabindex={href ? 0 : undefined}
 	onkeydown={(e) => {
-		if (e.key === 'Enter' || e.key === ' ') {
+		if (href && (e.key === 'Enter' || e.key === ' ')) {
 			e.preventDefault();
 			handleCardClick();
 		}

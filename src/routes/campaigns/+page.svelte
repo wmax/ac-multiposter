@@ -34,29 +34,43 @@
 		refreshItems();
 	}
 
-	const focusedId = $derived($page.url.searchParams.get('focus'));
 	let highlightedId = $state<string | null>(null);
+	let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	$effect(() => {
+	// Handle highlighting when focus param is present
+	function handleFocusParam() {
 		if (!browser) return;
-		const focus = focusedId;
-		if (!focus) return;
-		highlightedId = focus;
+		
+		const focusId = $page.url.searchParams.get('focus');
+		if (!focusId) return;
+
+		// Set the highlight
+		highlightedId = focusId;
+
+		// Clear the URL param
 		const currentUrl = new URL(window.location.href);
 		currentUrl.searchParams.delete('focus');
 		replaceState(`${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`, {
 			keepFocus: true,
 			noScroll: true,
 		});
-	});
 
-	$effect(() => {
-		if (!browser) return;
-		if (!highlightedId) return;
-		const timeout = setTimeout(() => {
+		// Clear any existing timeout
+		if (highlightTimeout) {
+			clearTimeout(highlightTimeout);
+		}
+
+		// Set new timeout to clear highlight
+		highlightTimeout = setTimeout(() => {
 			highlightedId = null;
+			highlightTimeout = null;
 		}, 4000);
-		return () => clearTimeout(timeout);
+	}
+
+	// Check for focus param on mount and after navigation
+	$inspect(() => {
+		// This only runs when $page changes, not in a reactive loop
+		handleFocusParam();
 	});
 </script>
 
@@ -78,7 +92,6 @@
 		{#snippet children(campaign)}
 			<ListCard
 				id={campaign.id}
-				href={`/campaigns/${campaign.id}`}
 				selected={listPage.selection.isSelected(campaign.id)}
 				onToggle={listPage.selection.toggleSelection}
 				editHref={`/campaigns/${campaign.id}?edit=1`}
