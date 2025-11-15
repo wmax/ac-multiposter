@@ -16,6 +16,7 @@
 		onCancel?: () => void;
 		onFormSuccess?: () => void;
 		onFormError?: () => void;
+		initialValues?: Record<string, unknown>;
 	}
 
 	let {
@@ -28,6 +29,7 @@
 		onCancel,
 		onFormSuccess,
 		onFormError,
+		initialValues,
 		class: className = '',
 		...rest
 	}: Props = $props();
@@ -38,6 +40,15 @@
 	// Use preflight schema for client-side validation
 	const schema = mode === 'create' ? createCampaignSchema : updateCampaignSchema;
 	const formWithValidation = form.preflight(schema);
+
+	// If initial values provided, set them once
+	if (initialValues) {
+		try {
+			formWithValidation.fields.set(initialValues);
+		} catch (e) {
+			// ignore invalid shapes
+		}
+	}
 
 	// Apply enhance if callbacks provided, but keep formWithValidation for state checks
 	const formAttributes = onFormSuccess || onFormError 
