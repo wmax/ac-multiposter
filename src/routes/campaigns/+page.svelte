@@ -1,7 +1,4 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { browser } from '$app/environment';
-	import { replaceState } from '$app/navigation';
 	import { listCampaigns } from './list.remote';
 	import { deleteCampaigns } from './[id]/delete.remote';
 	import type { Campaign } from './list.remote';
@@ -16,7 +13,6 @@
 		itemsPromise = listCampaigns();
 	}
 
-	// Use the shared list page logic
 	const listPage = createListPage<Campaign>({
 		fetchItems: listCampaigns,
 		deleteItems: (ids) => deleteCampaigns(ids).updates(listCampaigns()),
@@ -33,45 +29,6 @@
 		await listPage.handleDelete(id);
 		refreshItems();
 	}
-
-	let highlightedId = $state<string | null>(null);
-	let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
-
-	// Handle highlighting when focus param is present
-	function handleFocusParam() {
-		if (!browser) return;
-		
-		const focusId = $page.url.searchParams.get('focus');
-		if (!focusId) return;
-
-		// Set the highlight
-		highlightedId = focusId;
-
-		// Clear the URL param
-		const currentUrl = new URL(window.location.href);
-		currentUrl.searchParams.delete('focus');
-		replaceState(`${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`, {
-			keepFocus: true,
-			noScroll: true,
-		});
-
-		// Clear any existing timeout
-		if (highlightTimeout) {
-			clearTimeout(highlightTimeout);
-		}
-
-		// Set new timeout to clear highlight
-		highlightTimeout = setTimeout(() => {
-			highlightedId = null;
-			highlightTimeout = null;
-		}, 4000);
-	}
-
-	// Check for focus param on mount and after navigation
-	$inspect(() => {
-		// This only runs when $page changes, not in a reactive loop
-		handleFocusParam();
-	});
 </script>
 
 	<ListPageLayout
@@ -97,7 +54,6 @@
 				editHref={`/campaigns/${campaign.id}?edit=1`}
 				onDelete={handleDelete}
 				deleteLabel="Delete"
-				highlight={campaign.id === highlightedId}
 			>
 				{#snippet title()}
 					<a 

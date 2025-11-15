@@ -31,9 +31,7 @@
 		untrack(() => {
 			if (result.success) {
 				toast.success('Campaign created successfully!');
-				const campaignId = result.campaign?.id;
-				const target = campaignId ? `/campaigns?focus=${encodeURIComponent(campaignId)}` : '/campaigns';
-				goto(target);
+				goto('/campaigns');
 			} else if (result.error) {
 				toast.error(`Failed to create campaign: ${result.error}`);
 			}

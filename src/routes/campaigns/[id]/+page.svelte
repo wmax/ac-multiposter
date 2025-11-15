@@ -74,9 +74,7 @@
 			if (result.success) {
 				toast.success('Campaign updated successfully!');
 				isEditMode = false;
-				const updatedId = result.campaign?.id ?? result.updatedCampaign?.id;
-				const target = updatedId ? `/campaigns?focus=${encodeURIComponent(updatedId)}` : '/campaigns';
-				goto(target);
+				goto('/campaigns');
 			} else if (result.error) {
 				toast.error(`Failed to update campaign: ${result.error}`);
 			}
