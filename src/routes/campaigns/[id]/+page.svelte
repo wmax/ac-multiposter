@@ -1,24 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { enhance } from '$app/forms';
 	import { getCampaign } from './view.remote';
 	import { updateCampaign } from './update.remote';
 	import { deleteCampaigns } from './delete.remote';
 	import type { Campaign } from '../list.remote';
-	import type { Attachment } from 'svelte/attachments';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 	import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
 	import { updateCampaignSchema } from '$lib/validations/campaign';
     import { Button } from '$lib/components/ui/button';
-    import { LoaderCircle } from '@lucide/svelte';
-    import { campaign } from '$lib/server/db/schema';
-    import { capitalizeFirstLetter } from 'better-auth';
-
-	const campaignId = $derived(page.params.id || '');
-
-	const campaignPromise = $derived(getCampaign(campaignId));
 
 	function handleDeleteWithConfirm(campaign: Campaign) {
 		if (!confirm(`Delete campaign "${campaign.name}"?`)) {
@@ -27,16 +18,6 @@
 		return true;
 	}
 
-	
-	$effect(() => {
-			campaignPromise.then((campaign) => {
-			if (campaign) {
-				updateCampaign.fields.id.set(campaign.id);
-				updateCampaign.fields.name.set(campaign.name);
-				updateCampaign.fields.content.set(JSON.stringify(campaign.content, null, 2));
-			}
-	});
-	});
 </script>
 
 {#snippet campaignNotFoundSnippet(headline : string, text : string)}
@@ -52,10 +33,10 @@
 {/snippet}
 
 <div class="container mx-auto px-4 py-8">
-	{#await campaignPromise}
+	{#await getCampaign(page.params.id || '')}
 		<div class="text-center py-12">
 			<div class="text-gray-600">
-				<LoaderCircle class="animate-spin mx-auto mb-4" size="48" />
+				<!-- <LoaderCircle class="animate-spin mx-auto mb-4" size="48" /> -->
 				Loading campaign...
 			</div>
 		</div>
@@ -111,14 +92,14 @@
 									})
 								}>
 
-							<input {...updateCampaign.fields.name.as('hidden', campaign.id)} />
+							<input {...updateCampaign.fields.id.as('hidden', campaign.id)} />
 							<label class="block text-sm font-medium text-gray-700 mb-2">
 								<span>Campaign Name</span>
 								<input
-									{...updateCampaign.fields.name.as('text',)}
+									{...updateCampaign.fields.name.as('text')}
+									value={campaign.name}
 									class="mt-2 w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 {(updateCampaign.fields.name.issues()?.length ?? 0) > 0 ? 'border-red-500' : 'border-gray-300'}"
 									placeholder="Enter campaign name"
-									value={updateCampaign.fields.name.value() ?? campaign.name}
 									onblur={() => updateCampaign.validate()}
 								/>
 								{#each updateCampaign.fields.name.issues() ?? [] as issue}
@@ -129,10 +110,10 @@
 								<span>Content (JSON)</span>
 								<textarea
 									{...updateCampaign.fields.content.as('text')}
+									value={JSON.stringify(campaign.content, null, 2)}
 									rows="12"
 									class="mt-2 w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm {(updateCampaign.fields.content.issues()?.length ?? 0) > 0 ? 'border-red-500' : 'border-gray-300'}"
 									placeholder="{'{}'}"
-									value={updateCampaign.fields.content.value() ?? JSON.stringify(campaign.content, null, 2)}
 									onblur={() => updateCampaign.validate()}
 								></textarea>
 								{#each updateCampaign.fields.content.issues() ?? [] as issue}

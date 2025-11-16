@@ -5,7 +5,6 @@
 	import { createCampaignSchema } from '$lib/validations/campaign';
 	import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
 	import { toast } from 'svelte-sonner';
-    import { SingleStoreDateString } from 'drizzle-orm/singlestore-core';
     import Button from '$lib/components/ui/button/button.svelte';
 
 </script>
@@ -23,7 +22,7 @@
 			{...createCampaign.preflight(createCampaignSchema).enhance(async ({ form, data, submit }) => {
 				try {
 					await submit();
-					toast.success('Successfully published!');
+					toast.success('Successfully Saved!');
 					goto('/campaigns');
 				} catch (error) {
 					toast.error('Oh no! Something went wrong');
