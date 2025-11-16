@@ -64,16 +64,20 @@
 								loadingLabel="Deleting..."
 								loading={deleteCampaigns.pending}	
 								variant="destructive"
-								onclick={async () => {
-									try {
-										await deleteCampaigns([campaign.id]);
-										toast.success('Campaign deleted successfully!');
-										await goto('/campaigns');
-									} catch (error) {
-										toast.error('Failed to delete campaign');
+								onclick={() => {
+									if (handleDeleteWithConfirm(campaign)) {
+										(async () => {
+											try {
+												await deleteCampaigns([campaign.id]);
+												toast.success('Campaign deleted successfully!');
+												await goto('/campaigns');
+											} catch (error) {
+												toast.error('Failed to delete campaign');
+											}
+										})();
 									}
-								}}
-							/>
+								}
+							}/>
 						</div>
 					</div>
 
@@ -81,7 +85,7 @@
 						<h2 class="text-xl font-semibold mb-4">Edit Campaign</h2>
 						<form {...updateCampaign
 									.preflight(updateCampaignSchema)
-									.enhance(async ({ form, data, submit }) => {
+									.enhance(async ({ submit }) => {
 										try {
 											await submit();
 											toast.success('Successfully saved!');

@@ -19,7 +19,7 @@
 		<h1 class="text-3xl font-bold mb-6">Create New Campaign</h1>
 
 		<form 
-			{...createCampaign.preflight(createCampaignSchema).enhance(async ({ form, data, submit }) => {
+			{...createCampaign.preflight(createCampaignSchema).enhance(async ({ submit }) => {
 				try {
 					await submit();
 					toast.success('Successfully Saved!');
