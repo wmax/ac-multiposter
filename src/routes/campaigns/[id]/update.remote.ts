@@ -49,7 +49,7 @@ export const updateCampaign = form(updateCampaignSchema, async (data) => {
 		};
 		
 		// Update both queries
-		await getCampaign(data.id).set(updatedCampaign);
+		getCampaign(data.id).set(updatedCampaign);
 		await listCampaigns().refresh();
 		
 		return { updatedCampaign, campaign: updatedCampaign, success: true };

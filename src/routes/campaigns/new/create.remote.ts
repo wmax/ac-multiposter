@@ -1,6 +1,5 @@
 
 import { form } from '$app/server'
-import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { campaign } from '$lib/server/db/schema';
 import { listCampaigns, type Campaign } from '../list.remote';

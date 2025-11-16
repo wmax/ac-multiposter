@@ -6,6 +6,7 @@
 	import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
 	import { toast } from 'svelte-sonner';
     import { SingleStoreDateString } from 'drizzle-orm/singlestore-core';
+    import Button from '$lib/components/ui/button/button.svelte';
 
 </script>
 
@@ -70,15 +71,13 @@
 					label="Create Campaign"
 					loadingLabel="Creating..."
 					loading={createCampaign.pending}
-					class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
 				/>
-				
-				<a
+				<Button
+					variant="secondary"
 					href="/campaigns"
-					class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
 				>
 					Cancel
-				</a>
+				</Button>
 			</div>
 		</form>
 	</div>
