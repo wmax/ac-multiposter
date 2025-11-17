@@ -1,6 +1,7 @@
 <script lang="ts">
 import { Button } from '$lib/components/ui/button';
 	import AsyncButton from './AsyncButton.svelte';
+	import { toast } from 'svelte-sonner';
 
 
 	interface Props {
@@ -8,11 +9,12 @@ import { Button } from '$lib/components/ui/button';
 		totalCount: number;
 		onSelectAll: () => void;
 		onDeselectAll: () => void;
-		onDelete: () => void;
+		onDelete: () => Promise<void>;
 		newItemHref: string;
 		newItemLabel: string;
 		deleteLabel?: string;
 	}
+
 
 	let { 
 		selectedCount,
@@ -24,6 +26,20 @@ import { Button } from '$lib/components/ui/button';
 		newItemLabel,
 		deleteLabel = 'Delete Selected'
 	}: Props = $props();
+
+	let bulkDeleting = $state(false);
+
+	async function handleBulkDelete() {
+		bulkDeleting = true;
+		try {
+			await onDelete();
+			toast.success(`${selectedCount} item${selectedCount === 1 ? '' : 's'} deleted successfully!`);
+		} catch (error) {
+			toast.error('Failed to delete selected items');
+		} finally {
+			bulkDeleting = false;
+		}
+	}
 
 	const allSelected = $derived(selectedCount > 0 && selectedCount === totalCount);
 </script>
@@ -38,9 +54,11 @@ import { Button } from '$lib/components/ui/button';
 			{allSelected ? 'Deselect All' : 'Select All'}
 		</Button>
 		<AsyncButton
-			onclick={onDelete}
+			onclick={handleBulkDelete}
 			variant="destructive"
 			class="px-4 py-2"
+			loading={bulkDeleting}
+			loadingLabel="Deleting..."
 		>
 			{deleteLabel} ({selectedCount})
 		</AsyncButton>
