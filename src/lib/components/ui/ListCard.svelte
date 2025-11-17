@@ -1,5 +1,7 @@
 <script lang="ts">
 import { Button } from '$lib/components/ui/button';
+import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
+import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import type { Snippet } from 'svelte';
 
@@ -39,18 +41,18 @@ import { Button } from '$lib/components/ui/button';
 	}: Props = $props();
 	
 	let deleting = $state(false);
-	
+
 	async function handleDelete(e: MouseEvent) {
 		e.stopPropagation();
 		if (!onDelete) return;
-		
-		if (!confirm(`${deleteLabel} this item?`)) return;
-		
+		if (!confirm(`Delete this item?`)) return;
 		deleting = true;
 		try {
 			await onDelete(id);
+			toast.success('Item deleted successfully!');
 		} catch (error) {
-			alert(`Failed to ${deleteLabel.toLowerCase()}`);
+			toast.error('Failed to delete item');
+		} finally {
 			deleting = false;
 		}
 	}
@@ -153,14 +155,15 @@ import { Button } from '$lib/components/ui/button';
 				</Button>
 			{/if}
 			{#if onDelete}
-				<Button
+				<AsyncButton
 					variant="destructive"
 					size="default"
 					onclick={handleDelete}
-					disabled={deleting}
+					loading={deleting}
+					loadingLabel="Deleting..."
 				>
-					{deleting ? 'Deleting...' : deleteLabel}
-				</Button>
+					{deleteLabel}
+				</AsyncButton>
 			{/if}
 		</div>
 	{/if}
