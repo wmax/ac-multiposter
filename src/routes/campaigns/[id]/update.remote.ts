@@ -3,7 +3,7 @@ import { db } from '$lib/server/db';
 import { campaign } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { Campaign } from '../list.remote';
-import { getCampaign } from './read.remote';
+import { readCampaign } from './read.remote';
 import { listCampaigns } from '../list.remote';
 import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
 import { updateCampaignSchema } from '$lib/validations/campaign';
@@ -14,7 +14,7 @@ export const updateCampaign = form(updateCampaignSchema, async (data) => {
 		ensureAccess(user, 'campaigns');
 		
 		// Get current campaign
-		const current = await getCampaign(data.id);
+		const current = await readCampaign(data.id);
 		if (!current) {
 			return { success: false, error: 'Campaign not found' };
 		}
@@ -49,7 +49,7 @@ export const updateCampaign = form(updateCampaignSchema, async (data) => {
 		};
 		
 		// Update both queries
-		await getCampaign(data.id).set(updatedCampaign);
+		await readCampaign(data.id).set(updatedCampaign);
 		await listCampaigns().refresh();
 		
 		return { updatedCampaign, campaign: updatedCampaign, success: true };

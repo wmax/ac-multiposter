@@ -6,7 +6,19 @@ import { z } from 'zod/mini';
  */
 export const createCampaignSchema = z.object({
   name: z.string().check(z.minLength(1, 'Campaign name is required')),
-  content: z.optional(z.string()),
+  content: z.string()
+    .check(z.minLength(1, 'Content is required'))
+    .refine(
+      (val) => {
+        try {
+          JSON.parse(val);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: 'Content must be valid JSON' }
+    ),
 });
 
 /**
@@ -16,7 +28,19 @@ export const createCampaignSchema = z.object({
 export const updateCampaignSchema = z.object({
   id: z.string(),
   name: z.string().check(z.minLength(1, 'Campaign name is required')),
-  content: z.optional(z.string()),
+  content: z.string()
+    .check(z.minLength(1, 'Content is required'))
+    .refine(
+      (val) => {
+        try {
+          JSON.parse(val);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: 'Content must be valid JSON' }
+    ),
 });
 
 /**

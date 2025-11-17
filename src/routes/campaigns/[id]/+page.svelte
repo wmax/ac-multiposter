@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { getCampaign } from './read.remote';
+	import { readCampaign } from './read.remote';
 	import { updateCampaign } from './update.remote';
 	import { deleteCampaigns } from './delete.remote';
 	import type { Campaign } from '../list.remote';
@@ -19,7 +19,7 @@
 	}
 </script>
 <div class="container mx-auto px-4 py-8">
-	{#await getCampaign(page.params.id || '')}
+	{#await readCampaign(page.params.id || '')}
 		<div class="text-center py-12">
 			<div class="text-gray-600">
 				Loading campaign...
