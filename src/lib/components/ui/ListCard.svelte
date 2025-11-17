@@ -1,4 +1,5 @@
 <script lang="ts">
+import { Button } from '$lib/components/ui/button';
 	import { goto } from '$app/navigation';
 	import type { Snippet } from 'svelte';
 
@@ -141,23 +142,25 @@
 	{:else if editHref || onDelete}
 		<div class="flex flex-col gap-2 shrink-0">
 			{#if editHref}
-				<a
+				<Button
 					href={editHref}
-					data-sveltekit-preload-code="hover"
-					class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-center"
+					variant="default"
+					size="default"
+					class="text-center"
 					onclick={(e) => e.stopPropagation()}
 				>
 					Edit
-				</a>
+				</Button>
 			{/if}
 			{#if onDelete}
-				<button
+				<Button
+					variant="destructive"
+					size="default"
 					onclick={handleDelete}
 					disabled={deleting}
-					class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					{deleting ? 'Deleting...' : deleteLabel}
-				</button>
+				</Button>
 			{/if}
 		</div>
 	{/if}

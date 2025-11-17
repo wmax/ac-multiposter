@@ -121,6 +121,7 @@
 							<Button
 								variant="secondary"
 								href="/campaigns"
+								size="default"
 							>
 								Cancel
 							</Button>
@@ -134,7 +135,7 @@
 				<div class="text-center py-12">
 					<h1 class="text-2xl font-bold text-red-600 mb-4">Campaign Not Found</h1>
 					<p class="text-gray-600 mb-6">The campaign you are looking for does not exist.</p>
-					<a href="/campaigns" class="inline-block px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Back to Campaigns</a>
+					<Button href="/campaigns" size="default">Back to Campaigns</Button>
 				</div>
 			</div>
 		{/if}
@@ -144,7 +145,7 @@
 			<div class="text-center py-12">
 				<h1 class="text-2xl font-bold text-red-600 mb-4">Error</h1>
 				<p class="text-gray-600 mb-6">{error instanceof Error ? error.message : 'Failed to load campaign'}</p>
-				<a href="/campaigns" class="inline-block px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Back to Campaigns</a>
+				<Button href="/campaigns" size="default">Back to Campaigns</Button>
 			</div>
 		</div>
 	{/await}

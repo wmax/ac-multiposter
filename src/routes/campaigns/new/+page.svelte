@@ -5,7 +5,7 @@
 	import { createCampaignSchema } from '$lib/validations/campaign';
 	import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
 	import { toast } from 'svelte-sonner';
-    import Button from '$lib/components/ui/button/button.svelte';
+	import { Button } from '$lib/components/ui/button';
 
 </script>
 
@@ -71,6 +71,7 @@
 					<Button
 						variant="secondary"
 						href="/campaigns"
+						size="default"
 					>
 						Cancel
 					</Button>

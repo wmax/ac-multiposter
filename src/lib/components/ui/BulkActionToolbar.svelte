@@ -1,4 +1,5 @@
 <script lang="ts">
+import { Button } from '$lib/components/ui/button';
 	import AsyncButton from './AsyncButton.svelte';
 
 
@@ -29,12 +30,13 @@
 
 <div class="flex gap-2">
 	{#if selectedCount > 0}
-		<button
+		<Button
+			variant="secondary"
+			size="default"
 			onclick={allSelected ? onDeselectAll : onSelectAll}
-			class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
 		>
 			{allSelected ? 'Deselect All' : 'Select All'}
-		</button>
+		</Button>
 		<AsyncButton
 			onclick={onDelete}
 			variant="destructive"
@@ -43,7 +45,5 @@
 			{deleteLabel} ({selectedCount})
 		</AsyncButton>
 	{/if}
-	<a href={newItemHref} class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-		{newItemLabel}
-	</a>
+	<Button href={newItemHref} variant="default" size="default">{newItemLabel}</Button>
 </div>
