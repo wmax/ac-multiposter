@@ -8,17 +8,17 @@ export const createCampaignSchema = z.object({
   name: z.string().check(z.minLength(1, 'Campaign name is required')),
   content: z.string()
     .check(z.minLength(1, 'Content is required'))
-    .refine(
-      (val) => {
-        try {
-          JSON.parse(val);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { message: 'Content must be valid JSON' }
-    ),
+    .check((payload) => {
+      try {
+        JSON.parse(payload.value);
+      } catch {
+        payload.issues.push({
+          code: 'custom',
+          message: 'Content must be valid JSON',
+          input: payload.value,
+        });
+      }
+    }),
 });
 
 /**
@@ -30,17 +30,17 @@ export const updateCampaignSchema = z.object({
   name: z.string().check(z.minLength(1, 'Campaign name is required')),
   content: z.string()
     .check(z.minLength(1, 'Content is required'))
-    .refine(
-      (val) => {
-        try {
-          JSON.parse(val);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { message: 'Content must be valid JSON' }
-    ),
+    .check((payload) => {
+      try {
+        JSON.parse(payload.value);
+      } catch {
+        payload.issues.push({
+          code: 'custom',
+          message: 'Content must be valid JSON',
+          input: payload.value,
+        });
+      }
+    }),
 });
 
 /**

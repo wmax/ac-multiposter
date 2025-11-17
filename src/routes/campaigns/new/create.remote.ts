@@ -1,5 +1,5 @@
 
-import { form } from '$app/server'
+import { form } from '$app/server';
 import { db } from '$lib/server/db';
 import { campaign } from '$lib/server/db/schema';
 import { listCampaigns, type Campaign } from '../list.remote';
@@ -23,17 +23,19 @@ export const createCampaign = form(createCampaignSchema, async (data) => {
 		
 		const row = result[0];
 		if (!row) {
-			return { success: false, error: 'Failed to create campaign' };
+			throw new Error('Failed to create campaign');
+			// return { error: { message: 'Failed to create campaign' } };
 		}
-		
-		await listCampaigns().refresh();
-		// Redirect throws and doesn't return, so this works correctly
+
+	
+		// await listCampaigns().refresh();
 		return { success: true };
 	} catch (error: any) {
 		// Check if this is a redirect error being thrown by SvelteKit
 		// If so, re-throw it so SvelteKit can handle the redirect
 		if (error?.status && error?.location) {
-			throw error;
+			throw error
+
 		}
 		
 		// Otherwise it's a real error, return it

@@ -6,6 +6,7 @@
 	import { deleteCampaigns } from './delete.remote';
 	import type { Campaign } from '../list.remote';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
+	import ErrorSection from '$lib/components/ui/ErrorSection.svelte';
 	import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
 	import { updateCampaignSchema } from '$lib/validations/campaign';
@@ -67,14 +68,19 @@
 					<h2 class="text-xl font-semibold mb-4">Edit Campaign</h2>
 					<form {...updateCampaign
 								.preflight(updateCampaignSchema)
-								.enhance(async ({ form, data, submit }) => {
-									try {
-										await submit();
-										toast.success('Successfully saved!');
-										goto('/campaigns');
-									} catch (error) {
-										toast.error('Oh no! Something went wrong');
-									}
+								.enhance(async ({ submit }) => {
+									   try {
+										   const result: any = await submit();
+										   if (result?.error) {
+											   toast.error(result.error.message || 'Oh no! Something went wrong');
+											   return;
+										   }
+										   toast.success('Successfully saved!');
+										   goto('/campaigns');
+									   } catch (error: unknown) {
+										   const err = error as { message?: string };
+										   toast.error(err?.message || 'Oh no! Something went wrong');
+									   }
 								})
 							}
 						class="space-y-6"
@@ -129,24 +135,20 @@
 					</form>
 				</div>
 			</div>
-		{:else}
-			<div class="max-w-2xl mx-auto">
-				<Breadcrumb feature="campaigns" />
-				<div class="text-center py-12">
-					<h1 class="text-2xl font-bold text-red-600 mb-4">Campaign Not Found</h1>
-					<p class="text-gray-600 mb-6">The campaign you are looking for does not exist.</p>
-					<Button href="/campaigns" size="default">Back to Campaigns</Button>
-				</div>
-			</div>
+		   {:else}
+			   <ErrorSection
+				   headline="Campaign Not Found"
+				   message="The campaign you are looking for does not exist."
+				   href="/campaigns"
+				   button="Back to Campaigns"
+			   />
 		{/if}
-	{:catch error}
-		<div class="max-w-2xl mx-auto">
-			<Breadcrumb feature="campaigns" />
-			<div class="text-center py-12">
-				<h1 class="text-2xl font-bold text-red-600 mb-4">Error</h1>
-				<p class="text-gray-600 mb-6">{error instanceof Error ? error.message : 'Failed to load campaign'}</p>
-				<Button href="/campaigns" size="default">Back to Campaigns</Button>
-			</div>
-		</div>
+	   {:catch error}
+		   <ErrorSection
+			   headline="Error"
+			   message={error instanceof Error ? error.message : 'Failed to load campaign'}
+			   href="/campaigns"
+			   button="Back to Campaigns"
+		   />
 	{/await}
 </div>

@@ -33,12 +33,14 @@ export function createListPage<T extends { id: string }>(config: ListPageConfig<
 	/** Handle bulk delete with confirmation and toast notifications */
 	async function handleBulkDelete() {
 		if (selection.count === 0) return;
-		
-		const count = selection.count;
+
+		// Capture selected IDs and count before any async/side-effect
+		const selectedIds = selection.getSelectedArray();
+		const count = selectedIds.length;
 		if (!confirm(`Delete ${count} ${count === 1 ? itemName : itemNamePlural}?`)) return;
-		
+
 		try {
-			await deleteItems(selection.getSelectedArray());
+			await deleteItems(selectedIds);
 			toast.success(`${count} ${count === 1 ? itemName : itemNamePlural} deleted successfully!`);
 			selection.deselectAll();
 			refresh();

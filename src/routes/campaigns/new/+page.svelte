@@ -1,3 +1,4 @@
+
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { createCampaign } from './create.remote';
@@ -6,6 +7,7 @@
 	import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
 	import { toast } from 'svelte-sonner';
 	import { Button } from '$lib/components/ui/button';
+
 
 </script>
 
@@ -19,13 +21,18 @@
 				<form 
 					{...createCampaign.preflight(createCampaignSchema).enhance(async ({ submit }) => {
 						try {
-							await submit();
+							const result: any = await submit();
+							if (result?.error) {
+								toast.error(result.error.message || 'Oh no! Something went wrong');
+								return;
+							}
 							toast.success('Successfully Saved!');
-							goto('/campaigns');
-						} catch (error) {
-							toast.error('Oh no! Something went wrong');
+							await goto('/campaigns');
+						} catch (error: unknown) {
+							const err = error as { message?: string };
+							toast.error(err?.message || 'Oh no! Something went wrong');
 						}
-						})}
+					})}
 				>
 
 				<label class="block">

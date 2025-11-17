@@ -16,7 +16,7 @@ export const updateCampaign = form(updateCampaignSchema, async (data) => {
 		// Get current campaign
 		const current = await readCampaign(data.id);
 		if (!current) {
-			return { success: false, error: 'Campaign not found' };
+			throw new Error('Campaign not found');
 		}
 		
 		const name = data.name ?? current.name;
@@ -33,10 +33,10 @@ export const updateCampaign = form(updateCampaignSchema, async (data) => {
 			})
 			.where(and(eq(campaign.id, data.id), eq(campaign.userId, user.id)))
 			.returning();
-		
+
 		const updated = result[0];
 		if (!updated) {
-			return { success: false, error: 'Failed to update campaign' };
+			throw new Error('Failed to update campaign');
 		}
 		
 		const updatedCampaign: Campaign = {
@@ -54,9 +54,9 @@ export const updateCampaign = form(updateCampaignSchema, async (data) => {
 		
 		return { updatedCampaign, campaign: updatedCampaign, success: true };
 	} catch (error: any) {
-		return { 
-			success: false, 
-			error: error?.message || 'An unexpected error occurred' 
-		};
+		// Rethrow SvelteKit redirect errors
+		if (error?.status && error?.location) throw error;
+		// Rethrow other custom/fatal errors as needed
+		throw error;
 	}
 });
