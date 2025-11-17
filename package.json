@@ -16,7 +16,7 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:e2e": "playwright test",
-		"test": "npm run test:e2e && npm run test:unit -- --run",
+		"test": "pnpm test:e2e && pnpm test:unit -- --run",
 		"test:unit": "vitest",
 		"db:push": "drizzle-kit push",
 		"db:generate": "drizzle-kit generate",

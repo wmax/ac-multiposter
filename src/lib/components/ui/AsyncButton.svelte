@@ -1,21 +1,14 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import type { Snippet } from 'svelte';
 	//import { LoaderCircle } from '@lucide/svelte';
 
 	interface Props {
 		// Loading state - can be a boolean or a number (for remote function pending count)
 		loading?: boolean | number;
-		
-		// Button display text when idle
-		label?: string;
-		
-		// Button text while loading
-		loadingLabel?: string;
-		
-		// Bulk mode - shows count of selected items
-		bulkMode?: boolean;
-		selectedCount?: number;
-		
+
+		children?: Snippet;
+
 		// Button styling variants (inherited from shadcn Button)
 		variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
 		size?: 'default' | 'sm' | 'lg' | 'icon';
@@ -31,40 +24,28 @@
 		
 		// Click handler
 		onclick?: (event: MouseEvent) => void;
+
+		// Button text while loading
+		loadingLabel?: string;
 	}
 
 	let {
 		loading = false,
-		label = 'Submit',
 		loadingLabel = 'Processing...',
-		bulkMode = false,
-		selectedCount = 0,
+		children,
 		variant = 'default',
 		size = 'default',
 		class: className = '',
 		disabled = false,
 		type = 'button',
-		onclick,
+		onclick
 	}: Props = $props();
 
 	// Normalize loading state (handle both boolean and number from remote function pending count)
 	const isLoading = $derived(typeof loading === 'number' ? loading > 0 : loading);
 
-	// Computed display text
-	const displayText = $derived(() => {
-		if (isLoading) {
-			return loadingLabel;
-		}
-		
-		if (bulkMode && selectedCount > 0) {
-			return `${label} (${selectedCount})`;
-		}
-		
-		return label;
-	});
-
 	// Determine if button should be disabled
-	const isDisabled = $derived(isLoading || disabled || (bulkMode && selectedCount === 0));
+	const isDisabled = $derived(isLoading || disabled);
 </script>
 
 <Button
@@ -77,6 +58,8 @@
 >
 	{#if isLoading}
 		<!-- <LoaderCircle class="mr-2 h-4 w-4 animate-spin" /> -->
+		{loadingLabel}
+	{:else if children}
+		{@render children()}
 	{/if}
-	{displayText()}
 </Button>

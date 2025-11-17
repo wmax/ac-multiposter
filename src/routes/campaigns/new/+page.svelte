@@ -67,10 +67,11 @@
 			<div class="flex gap-3 mt-6">
 				<AsyncButton
 					type="submit"
-					label="Create Campaign"
 					loadingLabel="Creating..."
 					loading={createCampaign.pending}
-				/>
+				>
+					Create Campaign
+				</AsyncButton>
 				<Button
 					variant="secondary"
 					href="/campaigns"
