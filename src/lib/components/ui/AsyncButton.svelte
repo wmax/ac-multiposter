@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import type { Snippet } from 'svelte';
-	//import { LoaderCircle } from '@lucide/svelte';
+	import { LoaderCircle } from '@lucide/svelte';
 
 	interface Props {
 		// Loading state - can be a boolean or a number (for remote function pending count)
@@ -57,7 +57,7 @@
 	{onclick}
 >
 	{#if isLoading}
-		<!-- <LoaderCircle class="mr-2 h-4 w-4 animate-spin" /> -->
+		<LoaderCircle class="mr-2 h-4 w-4 animate-spin" />
 		{loadingLabel}
 	{:else if children}
 		{@render children()}

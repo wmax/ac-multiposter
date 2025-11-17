@@ -3,7 +3,7 @@ import { db } from '$lib/server/db';
 import { campaign } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { Campaign } from '../list.remote';
-import { getCampaign } from './view.remote';
+import { getCampaign } from './read.remote';
 import { listCampaigns } from '../list.remote';
 import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
 import { updateCampaignSchema } from '$lib/validations/campaign';

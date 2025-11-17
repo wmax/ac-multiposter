@@ -5,7 +5,10 @@
 	import { createListPage } from '$lib/hooks/useListPage.svelte';
 	import ListPageLayout from '$lib/components/ui/ListPageLayout.svelte';
 	import ListCard from '$lib/components/ui/ListCard.svelte';
+	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 	import { Megaphone } from '@lucide/svelte';
+
+
 
 	let itemsPromise = $state<Promise<Campaign[]>>(listCampaigns());
 
@@ -16,6 +19,7 @@
 		itemNamePlural: 'campaigns',
 	});
 
+
 	async function handleBulkDelete() {
 		await listPage.handleBulkDelete();
 	}
@@ -25,25 +29,28 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Campaigns</title>
+</svelte:head>
 	<div class="container mx-auto px-4 py-8">
 		<div class="max-w-4xl mx-auto">
-			<h1 class="text-3xl font-bold mb-6">Campaigns</h1>
+			<Breadcrumb feature="campaigns" />
 			<div class="bg-white shadow rounded-lg p-6">
-				<ListPageLayout
-					feature="campaigns"
-					title="Campaigns"
-					itemsPromise={itemsPromise}
-					selection={listPage.selection}
-					selectionVersion={listPage.selection.version}
-					onBulkDelete={handleBulkDelete}
-					newItemHref="/campaigns/new"
-					newItemLabel="+ New Campaign"
-					emptyIcon={Megaphone}
-					emptyTitle="No Campaigns"
-					emptyDescription="Get started by creating your first marketing campaign"
-					emptyActionLabel="Create Your First Campaign"
-					loadingMessage="Loading campaigns..."
-				>
+				   <ListPageLayout
+					   feature="campaigns"
+					   title="Campaigns"
+					   itemsPromise={itemsPromise}
+					   selection={listPage.selection}
+					   selectionVersion={listPage.selection.version}
+					   onBulkDelete={handleBulkDelete}
+					   newItemHref="/campaigns/new"
+					   newItemLabel="+ New Campaign"
+					   emptyIcon={Megaphone}
+					   emptyTitle="No Campaigns"
+					   emptyDescription="Get started by creating your first campaign"
+					   emptyActionLabel="Create Your First Campaign"
+					   loadingMessage="Loading campaigns..."
+				   >
 					{#snippet children(campaign)}
 						<div class="mb-6 last:mb-0">
 							<ListCard

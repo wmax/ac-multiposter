@@ -10,27 +10,24 @@
 </script>
 
 <div class="container mx-auto px-4 py-8">
-	<Breadcrumb 
-		feature="campaigns"
-		current="New Campaign"
-	/>
+	<div class="max-w-2xl mx-auto">
+		<Breadcrumb feature="campaigns" current="New Campaign"/>
 
-	<div class="max-w-2xl">
-		<h1 class="text-3xl font-bold mb-6">Create New Campaign</h1>
+			<div class="bg-white shadow rounded-lg p-6 pace-y-4">
+				<h1 class="text-3xl font-bold mb-6">Create New Campaign</h1>
 
-		<form 
-			{...createCampaign.preflight(createCampaignSchema).enhance(async ({ submit }) => {
-				try {
-					await submit();
-					toast.success('Successfully Saved!');
-					goto('/campaigns');
-				} catch (error) {
-					toast.error('Oh no! Something went wrong');
-				}
-				})}
-			class="bg-white shadow rounded-lg p-6 space-y-6"
-		>
-			<div class="space-y-4">
+				<form 
+					{...createCampaign.preflight(createCampaignSchema).enhance(async ({ submit }) => {
+						try {
+							await submit();
+							toast.success('Successfully Saved!');
+							goto('/campaigns');
+						} catch (error) {
+							toast.error('Oh no! Something went wrong');
+						}
+						})}
+				>
+
 				<label class="block">
 					<span class="text-sm font-medium text-gray-700 mb-2">Campaign Name</span>
 					<input
@@ -62,23 +59,23 @@
 					{/each}
 					<p class="mt-1 text-sm text-gray-500">Enter campaign content as JSON</p>
 				</label>
-			</div>
 
-			<div class="flex gap-3 mt-6">
-				<AsyncButton
-					type="submit"
-					loadingLabel="Creating..."
-					loading={createCampaign.pending}
-				>
-					Create Campaign
-				</AsyncButton>
-				<Button
-					variant="secondary"
-					href="/campaigns"
-				>
-					Cancel
-				</Button>
-			</div>
-		</form>
+				<div class="flex gap-3 mt-6">
+					<AsyncButton
+						type="submit"
+						loadingLabel="Creating..."
+						loading={createCampaign.pending}
+					>
+						Create Campaign
+					</AsyncButton>
+					<Button
+						variant="secondary"
+						href="/campaigns"
+					>
+						Cancel
+					</Button>
+				</div>
+			</form>
+		</div>
 	</div>
 </div>

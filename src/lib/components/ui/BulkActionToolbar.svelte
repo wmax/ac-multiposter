@@ -1,4 +1,7 @@
 <script lang="ts">
+	import AsyncButton from './AsyncButton.svelte';
+
+
 	interface Props {
 		selectedCount: number;
 		totalCount: number;
@@ -32,17 +35,15 @@
 		>
 			{allSelected ? 'Deselect All' : 'Select All'}
 		</button>
-		<button
+		<AsyncButton
 			onclick={onDelete}
-			class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+			variant="destructive"
+			class="px-4 py-2"
 		>
 			{deleteLabel} ({selectedCount})
-		</button>
+		</AsyncButton>
 	{/if}
-	<a
-		href={newItemHref}
-		class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-	>
+	<a href={newItemHref} class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
 		{newItemLabel}
 	</a>
 </div>

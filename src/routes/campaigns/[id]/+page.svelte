@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { getCampaign } from './view.remote';
+	import { getCampaign } from './read.remote';
 	import { updateCampaign } from './update.remote';
 	import { deleteCampaigns } from './delete.remote';
 	import type { Campaign } from '../list.remote';
@@ -27,11 +27,8 @@
 		</div>
 	{:then campaign}
 		{#if campaign}
-			<Breadcrumb 
-				feature="campaigns"
-				current={campaign.name}
-			/>
 			<div class="max-w-2xl mx-auto">
+				<Breadcrumb feature="campaigns" current={campaign.name} />
 				<div class="bg-white shadow rounded-lg p-6">
 					<div class="flex justify-between items-start mb-6">
 						<div>
@@ -132,19 +129,23 @@
 				</div>
 			</div>
 		{:else}
-			<Breadcrumb feature="campaigns" />
-			<div class="text-center py-12">
-				<h1 class="text-2xl font-bold text-red-600 mb-4">Campaign Not Found</h1>
-				<p class="text-gray-600 mb-6">The campaign you are looking for does not exist.</p>
-				<a href="/campaigns" class="inline-block px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Back to Campaigns</a>
+			<div class="max-w-2xl mx-auto">
+				<Breadcrumb feature="campaigns" />
+				<div class="text-center py-12">
+					<h1 class="text-2xl font-bold text-red-600 mb-4">Campaign Not Found</h1>
+					<p class="text-gray-600 mb-6">The campaign you are looking for does not exist.</p>
+					<a href="/campaigns" class="inline-block px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Back to Campaigns</a>
+				</div>
 			</div>
 		{/if}
 	{:catch error}
-		<Breadcrumb feature="campaigns" />
-		<div class="text-center py-12">
-			<h1 class="text-2xl font-bold text-red-600 mb-4">Error</h1>
-			<p class="text-gray-600 mb-6">{error instanceof Error ? error.message : 'Failed to load campaign'}</p>
-			<a href="/campaigns" class="inline-block px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Back to Campaigns</a>
+		<div class="max-w-2xl mx-auto">
+			<Breadcrumb feature="campaigns" />
+			<div class="text-center py-12">
+				<h1 class="text-2xl font-bold text-red-600 mb-4">Error</h1>
+				<p class="text-gray-600 mb-6">{error instanceof Error ? error.message : 'Failed to load campaign'}</p>
+				<a href="/campaigns" class="inline-block px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Back to Campaigns</a>
+			</div>
 		</div>
 	{/await}
 </div>

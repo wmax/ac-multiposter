@@ -3,7 +3,6 @@
 	 * Generic list page layout with all common patterns
 	 * Reduces duplication across events, campaigns, and synchronizations
 	 */
-	import Breadcrumb from './Breadcrumb.svelte';
 	import BulkActionToolbar from './BulkActionToolbar.svelte';
 	import EmptyState from './EmptyState.svelte';
 	import Spinner from './Spinner.svelte';
@@ -70,8 +69,6 @@
 </script>
 
 <div class="container mx-auto px-4 py-8">
-	<Breadcrumb {feature} />
-
 	{#await itemsPromise}
 		<div class="flex justify-between items-center mb-6">
 			<div>
@@ -91,15 +88,15 @@
 				{/if}
 			</div>
 			{#key selectionVersion}
-				<BulkActionToolbar
-					selectedCount={selection.count}
-					totalCount={items.length}
-					onSelectAll={() => selection.selectAll(items)}
-					onDeselectAll={() => selection.deselectAll()}
-					onDelete={onBulkDelete}
-					{newItemHref}
-					{newItemLabel}
-				/>
+				   <BulkActionToolbar
+					   selectedCount={selection.count}
+					   totalCount={items.length}
+					   onSelectAll={() => selection.selectAll(items)}
+					   onDeselectAll={() => selection.deselectAll()}
+					   onDelete={onBulkDelete}
+					   {newItemHref}
+					   {newItemLabel}
+				   />
 			{/key}
 		</div>
 
