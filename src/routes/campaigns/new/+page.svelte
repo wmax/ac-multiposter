@@ -7,8 +7,6 @@
 	import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
 	import { toast } from 'svelte-sonner';
 	import { Button } from '$lib/components/ui/button';
-
-
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -19,19 +17,21 @@
 				<h1 class="text-3xl font-bold mb-6">Create New Campaign</h1>
 
 				<form 
-					{...createCampaign.preflight(createCampaignSchema).enhance(async ({ submit }) => {
-						try {
-							const result: any = await submit();
-							if (result?.error) {
-								toast.error(result.error.message || 'Oh no! Something went wrong');
-								return;
+					{...createCampaign
+						.preflight(createCampaignSchema)
+						.enhance(async ({ submit }) => {
+							try {
+								const result: any = await submit();
+								if (result?.error) {
+									toast.error(result.error.message || 'Oh no! Something went wrong');
+									return;
+								}
+								toast.success('Successfully Saved!');
+								await goto('/campaigns');
+							} catch (error: unknown) {
+								const err = error as { message?: string };
+								toast.error(err?.message || 'Oh no! Something went wrong');
 							}
-							toast.success('Successfully Saved!');
-							await goto('/campaigns');
-						} catch (error: unknown) {
-							const err = error as { message?: string };
-							toast.error(err?.message || 'Oh no! Something went wrong');
-						}
 					})}
 				>
 

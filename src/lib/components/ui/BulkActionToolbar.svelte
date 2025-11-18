@@ -31,9 +31,10 @@ import { Button } from '$lib/components/ui/button';
 
 	async function handleBulkDelete() {
 		bulkDeleting = true;
+		const count = selectedCount;
 		try {
 			await onDelete();
-			toast.success(`${selectedCount} item${selectedCount === 1 ? '' : 's'} deleted successfully!`);
+			toast.success(`${count} item${count === 1 ? '' : 's'} deleted successfully!`);
 		} catch (error) {
 			toast.error('Failed to delete selected items');
 		} finally {
