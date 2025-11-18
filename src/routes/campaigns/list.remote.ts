@@ -27,6 +27,5 @@ export const listCampaigns = query(async (): Promise<Campaign[]> => {
 			updatedAt: row.updatedAt.toISOString(),
 		}),
 	});
-	
 	return results;
 });

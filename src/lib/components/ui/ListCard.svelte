@@ -1,4 +1,7 @@
 <script lang="ts">
+import { Button } from '$lib/components/ui/button';
+import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
+import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import type { Snippet } from 'svelte';
 
@@ -38,18 +41,18 @@
 	}: Props = $props();
 	
 	let deleting = $state(false);
-	
+
 	async function handleDelete(e: MouseEvent) {
 		e.stopPropagation();
 		if (!onDelete) return;
-		
-		if (!confirm(`${deleteLabel} this item?`)) return;
-		
+		if (!confirm(`Delete this item?`)) return;
 		deleting = true;
 		try {
 			await onDelete(id);
+			toast.success('Item deleted successfully!');
 		} catch (error) {
-			alert(`Failed to ${deleteLabel.toLowerCase()}`);
+			toast.error('Failed to delete item');
+		} finally {
 			deleting = false;
 		}
 	}
@@ -141,23 +144,26 @@
 	{:else if editHref || onDelete}
 		<div class="flex flex-col gap-2 shrink-0">
 			{#if editHref}
-				<a
+				<Button
 					href={editHref}
-					data-sveltekit-preload-code="hover"
-					class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-center"
+					variant="default"
+					size="default"
+					class="text-center"
 					onclick={(e) => e.stopPropagation()}
 				>
 					Edit
-				</a>
+				</Button>
 			{/if}
 			{#if onDelete}
-				<button
+				<AsyncButton
+					variant="destructive"
+					size="default"
 					onclick={handleDelete}
-					disabled={deleting}
-					class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+					loading={deleting}
+					loadingLabel="Deleting..."
 				>
-					{deleting ? 'Deleting...' : deleteLabel}
-				</button>
+					{deleteLabel}
+				</AsyncButton>
 			{/if}
 		</div>
 	{/if}

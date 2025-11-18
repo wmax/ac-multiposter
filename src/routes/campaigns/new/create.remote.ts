@@ -1,8 +1,8 @@
+
 import { form } from '$app/server';
 import { db } from '$lib/server/db';
 import { campaign } from '$lib/server/db/schema';
-import type { Campaign } from '../list.remote';
-import { listCampaigns } from '../list.remote';
+import { listCampaigns, type Campaign } from '../list.remote';
 import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
 import { createCampaignSchema } from '$lib/validations/campaign';
 
@@ -23,20 +23,22 @@ export const createCampaign = form(createCampaignSchema, async (data) => {
 		
 		const row = result[0];
 		if (!row) {
-			return { success: false, error: 'Failed to create campaign' };
+			throw new Error('Failed to create campaign');
+			// return { error: { message: 'Failed to create campaign' } };
+		}
+
+	
+		// await listCampaigns().refresh();
+		return { success: true };
+	} catch (error: any) {
+		// Check if this is a redirect error being thrown by SvelteKit
+		// If so, re-throw it so SvelteKit can handle the redirect
+		if (error?.status && error?.location) {
+			throw error
+
 		}
 		
-		const newCampaign: Campaign = {
-			id: row.id,
-			userId: row.userId,
-			name: row.name,
-			content: row.content as Record<string, any>,
-			createdAt: row.createdAt.toISOString(),
-			updatedAt: row.updatedAt.toISOString(),
-		};
-		
-		return { success: true, campaign: newCampaign };
-	} catch (error: any) {
+		// Otherwise it's a real error, return it
 		return { 
 			success: false, 
 			error: error?.message || 'An unexpected error occurred' 

@@ -1,20 +1,16 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { enhance } from '$app/forms';
-	import { getCampaign } from './view.remote';
+	import { readCampaign } from './read.remote';
 	import { updateCampaign } from './update.remote';
 	import { deleteCampaigns } from './delete.remote';
 	import type { Campaign } from '../list.remote';
-	import { listCampaigns } from '../list.remote';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
-	import CampaignForm from '$lib/components/campaigns/CampaignForm.svelte';
+	import ErrorSection from '$lib/components/ui/ErrorSection.svelte';
+	import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
 	import { toast } from '$lib/stores/toast.svelte';
-
-	const campaignId = $derived($page.params.id || '');
-	const campaignPromise = $derived(getCampaign(campaignId));
-
-	let isDeleting = $state(false);
+	import { updateCampaignSchema } from '$lib/validations/campaign';
+	import { Button } from '$lib/components/ui/button';
 
 	function handleDeleteWithConfirm(campaign: Campaign) {
 		if (!confirm(`Delete campaign "${campaign.name}"?`)) {
@@ -23,32 +19,18 @@
 		return true;
 	}
 </script>
-
-{#snippet campaignNotFoundSnippet(headline : string, text : string)}
-	<div class="text-center py-12">
-		<h1 class="text-2xl font-bold text-red-600 mb-4">{headline}</h1>
-		<p class="text-gray-600 mb-6">{text}</p>
-		<button
-			onclick={() => goto('/campaigns')}
-			class="inline-block px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-		>
-			Back to Campaigns
-		</button>
-	</div>	
-{/snippet}
-
 <div class="container mx-auto px-4 py-8">
-	{#await campaignPromise}
+	{#await readCampaign(page.params.id || '')}
 		<div class="text-center py-12">
-			<div class="text-gray-600">Loading campaign...</div>
+			<div class="text-gray-600">
+				Loading campaign...
+			</div>
 		</div>
 	{:then campaign}
-			{#if campaign}
-				<Breadcrumb 
-					feature="campaigns"
-					current={campaign.name}
-				/>
-				<div class="max-w-4xl">
+		{#if campaign}
+			<div class="max-w-2xl mx-auto">
+				<Breadcrumb feature="campaigns" current={campaign.name} />
+				<div class="bg-white shadow rounded-lg p-6">
 					<div class="flex justify-between items-start mb-6">
 						<div>
 							<h1 class="text-3xl font-bold mb-2">{campaign.name}</h1>
@@ -60,65 +42,113 @@
 							</p>
 						</div>
 						<div class="flex gap-2">
-							<form
-								method="POST"
-								use:enhance={() => {
-									if (!handleDeleteWithConfirm(campaign)) {
-										return () => {};
+							<AsyncButton
+								type="button"
+								loadingLabel="Deleting..."
+								loading={deleteCampaigns.pending}
+								variant="destructive"
+								onclick={() => {
+									if (handleDeleteWithConfirm(campaign)) {
+										(async () => {
+											try {
+												await deleteCampaigns([campaign.id]);
+												toast.success('Campaign deleted successfully!');
+												await goto('/campaigns');
+											} catch (error) {
+												toast.error('Failed to delete campaign');
+											}
+										})();
 									}
-									isDeleting = true;
-									return async ({ result }: any) => {
-										if (result.type === 'success') {
-											await deleteCampaigns([campaign.id]).updates(listCampaigns());
-											toast.success('Campaign deleted successfully!');
-											await goto('/campaigns');
-										} else {
-											toast.error('Failed to delete campaign');
-											isDeleting = false;
-										}
-									};
 								}}
 							>
-								<button
-									type="submit"
-									disabled={isDeleting}
-									class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-								>
-									{isDeleting ? 'Deleting...' : 'Delete'}
-								</button>
-							</form>
+								Delete
+							</AsyncButton>
 						</div>
 					</div>
-
-					<div class="bg-white shadow rounded-lg p-6">
-						<h2 class="text-xl font-semibold mb-4">Edit Campaign</h2>
-						<CampaignForm
-							form={updateCampaign}
-							mode="edit"
-							includeIdField
-							initialValues={{
-								id: campaign.id,
-								name: campaign.name,
-								content: JSON.stringify(campaign.content, null, 2)
-							}}
-							cancelHref="/campaigns"
-							onFormSuccess={() => {
-								toast.success('Campaign updated successfully!');
-								goto('/campaigns');
-							}}
-							onFormError={() => {
-								toast.error('Failed to update campaign');
-							}}
-							class="space-y-4"
-						/>
-					</div>
+					<h2 class="text-xl font-semibold mb-4">Edit Campaign</h2>
+					<form {...updateCampaign
+								.preflight(updateCampaignSchema)
+								.enhance(async ({ submit }) => {
+									   try {
+										   const result: any = await submit();
+										   if (result?.error) {
+											   toast.error(result.error.message || 'Oh no! Something went wrong');
+											   return;
+										   }
+										   toast.success('Successfully saved!');
+										   goto('/campaigns');
+									   } catch (error: unknown) {
+										   const err = error as { message?: string };
+										   toast.error(err?.message || 'Oh no! Something went wrong');
+									   }
+								})
+							}
+						class="space-y-6"
+					>
+						<input {...updateCampaign.fields.name.as('hidden', campaign.id)} />
+						<div class="space-y-4">
+							<label class="block">
+								<span class="text-sm font-medium text-gray-700 mb-2">Campaign Name</span>
+								<input
+									{...updateCampaign.fields.name.as('text',)}
+									class="mt-2 w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 {(updateCampaign.fields.name.issues()?.length ?? 0) > 0 ? 'border-red-500' : 'border-gray-300'}"
+									placeholder="Enter campaign name"
+									value={updateCampaign.fields.name.value() ?? campaign.name}
+									onblur={() => updateCampaign.validate()}
+								/>
+								{#each updateCampaign.fields.name.issues() ?? [] as issue}
+									<p class="mt-1 text-sm text-red-600">{issue.message}</p>
+								{/each}
+							</label>
+							<label class="block">
+								<span class="text-sm font-medium text-gray-700 mb-2">Content (JSON)</span>
+								<textarea
+									{...updateCampaign.fields.content.as('text')}
+									rows="12"
+									class="mt-2 w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm {(updateCampaign.fields.content.issues()?.length ?? 0) > 0 ? 'border-red-500' : 'border-gray-300'}"
+									placeholder="{'{}'}"
+									value={updateCampaign.fields.content.value() ?? JSON.stringify(campaign.content, null, 2)}
+									onblur={() => updateCampaign.validate()}
+								></textarea>
+								{#each updateCampaign.fields.content.issues() ?? [] as issue}
+									<p class="mt-1 text-sm text-red-600">{issue.message}</p>
+								{/each}
+								<p class="mt-1 text-sm text-gray-500">Enter campaign content as JSON</p>
+							</label>
+						</div>
+						<div class="flex gap-3 mt-6">
+							<AsyncButton
+								type="submit"
+								loadingLabel="Saving..."
+								loading={updateCampaign.pending}
+							>
+								Save Changes
+							</AsyncButton>
+							<Button
+								variant="secondary"
+								href="/campaigns"
+								size="default"
+							>
+								Cancel
+							</Button>
+						</div>
+					</form>
 				</div>
-			{:else}
-				<Breadcrumb feature="campaigns" />
-				{@render campaignNotFoundSnippet("Campaign Not Found", "The campaign you&apos;re looking for doesn&apos;t exist.")}
+			</div>
+		   {:else}
+			   <ErrorSection
+				   headline="Campaign Not Found"
+				   message="The campaign you are looking for does not exist."
+				   href="/campaigns"
+				   button="Back to Campaigns"
+			   />
 		{/if}
-	{:catch error}
-		<Breadcrumb feature="campaigns" />
-		{@render campaignNotFoundSnippet("Error", error instanceof Error ? error.message : 'Failed to load campaign')}
+	   {:catch error}
+		   <ErrorSection
+			   headline="Error"
+			   message={error instanceof Error ? error.message : 'Failed to load campaign'}
+			   href="/campaigns"
+			   button="Back to Campaigns"
+		   />
 	{/await}
 </div>
