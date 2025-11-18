@@ -2,7 +2,6 @@
 	import { listCampaigns } from './list.remote';
 	import { deleteCampaigns } from './[id]/delete.remote';
 	import type { Campaign } from './list.remote';
-	import { createListPage } from '$lib/hooks/useListPage.svelte';
 	// Inlined ListPageLayout, BulkActionToolbar, EmptyState, Spinner
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -14,24 +13,65 @@
 
 	let itemsPromise = $state<Promise<Campaign[]>>(listCampaigns());
 	let initializedItems = $state<Campaign[]>([]);
+	let selectedIds = $state<Set<string>>(new Set());
+	let selectionVersion = $state(0);
+	import { toast } from 'svelte-sonner';
 
-	const listPage = createListPage<Campaign>({
-		fetchItems: async () => {
-			return listCampaigns();
-		},
-		deleteItems: (ids) => deleteCampaigns(ids).updates(listCampaigns()),
-		itemName: 'campaign',
-		itemNamePlural: 'campaigns',
-	});
-
-	let selectionVersion = $derived(listPage.selection.version);
+	function isSelected(id: string) {
+		return selectedIds.has(id);
+	}
+	function toggleSelection(id: string) {
+		if (selectedIds.has(id)) {
+			selectedIds.delete(id);
+		} else {
+			selectedIds.add(id);
+		}
+		// Force reactivity
+		selectedIds = new Set(selectedIds);
+		selectionVersion++;
+	}
+	function selectAll(items: Campaign[]) {
+		selectedIds = new Set(items.map((item) => item.id));
+		selectionVersion++;
+	}
+	function deselectAll() {
+		selectedIds = new Set();
+		selectionVersion++;
+	}
+	function getSelectedArray() {
+		return Array.from(selectedIds);
+	}
 
 	async function handleBulkDelete() {
-		await listPage.handleBulkDelete();
+		const ids = getSelectedArray();
+		const count = ids.length;
+		if (count === 0) return;
+		if (!confirm(`Delete ${count} campaign${count === 1 ? '' : 's'}?`)) return;
+		try {
+			await deleteCampaigns(ids).updates(listCampaigns());
+			toast.success(`${count} campaign${count === 1 ? '' : 's'} deleted successfully!`);
+			deselectAll();
+			refresh();
+		} catch (error: any) {
+			toast.error(error.message || 'Failed to delete campaigns');
+		}
 	}
 
 	async function handleDelete(id: string) {
-		await listPage.handleDelete(id);
+		if (!confirm('Delete this item?')) return;
+		try {
+			await deleteCampaigns([id]).updates(listCampaigns());
+			selectedIds.delete(id);
+			selectedIds = new Set(selectedIds);
+			toast.success('Campaign deleted successfully!');
+			refresh();
+		} catch (error: any) {
+			toast.error(error.message || 'Failed to delete campaign');
+		}
+	}
+
+	function refresh() {
+		itemsPromise = listCampaigns();
 	}
 </script>
 
@@ -43,10 +83,10 @@
 				<h1 class="text-3xl font-bold flex-shrink-0">Campaigns</h1>
 				<div class="flex-1 flex justify-end">
 					<BulkActionToolbar 
-						selectedCount={listPage.selection.count}
+						selectedCount={selectedIds.size}
 						totalCount={initializedItems.length}
-						onSelectAll={() => listPage.selection.selectAll(initializedItems)}
-						onDeselectAll={() => listPage.selection.deselectAll()}
+						onSelectAll={() => selectAll(initializedItems)}
+						onDeselectAll={deselectAll}
 						onDelete={handleBulkDelete}
 						newItemHref="/campaigns/new"
 						newItemLabel="+ New Campaign" />
@@ -80,8 +120,8 @@
 								>
 									<input
 										type="checkbox"
-										checked={listPage.selection.isSelected(campaign.id)}
-										onchange={() => listPage.selection.toggleSelection(campaign.id)}
+										checked={isSelected(campaign.id)}
+										onchange={() => toggleSelection(campaign.id)}
 										onclick={(e) => e.stopPropagation()}
 										class="mt-1 w-4 h-4 text-blue-600"
 									/>
