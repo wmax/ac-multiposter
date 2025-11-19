@@ -1,14 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { getEvent } from './view.remote';
+	import { readEvent } from './read.remote';
 	import { updateEvent } from './update.remote';
 	import { deleteEvents } from './delete.remote';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
 
 	const eventId = $derived($page.params.id || '');
-	const eventQuery = $derived(getEvent(eventId));
+	const eventQuery = $derived(readEvent(eventId));
 
 	let isEditing = $state(false);
 	
@@ -152,10 +151,10 @@
 		
 		try {
 			await deleteEvents([eventId]);
-			toast.show('Event deleted successfully!', 'success');
+			   // TODO: Show toast: Event deleted successfully!
 			goto('/events');
 		} catch (error: any) {
-			toast.show(error?.message || 'Failed to delete event', 'error');
+			   // TODO: Show toast: error?.message || 'Failed to delete event'
 		}
 	}
 

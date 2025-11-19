@@ -3,7 +3,7 @@ import { db } from '$lib/server/db';
 import { event } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { listEvents } from '../list.remote';
-import { getEvent } from './view.remote';
+import { readEvent } from './read.remote';
 import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
 import { syncService } from '$lib/server/sync/service';
 import { updateEventSchema } from '$lib/validations/event';
@@ -70,7 +70,7 @@ export const updateEvent = form(updateEventSchema, async (data) => {
 	});
 
 	// Refresh both queries
-	await getEvent(data.id).refresh();
+	await readEvent(data.id).refresh();
 	await listEvents().refresh();
 
 	return { success: true };

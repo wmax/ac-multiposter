@@ -5,7 +5,6 @@
 	import { Calendar, ArrowLeft, ArrowRight, ArrowLeftRight } from '@lucide/svelte';
 	import DashboardCard from '$lib/components/ui/DashboardCard.svelte';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
 
 	let selectedProvider = $state<'google-calendar' | 'microsoft-calendar' | null>(null);
 	let providerId = $state('');

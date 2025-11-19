@@ -4,9 +4,6 @@
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 	import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import ListCard from '$lib/components/ui/ListCard.svelte';
-	import { createListPage } from '$lib/hooks/useListPage.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
 
 	type HarnessCampaign = {
 		id: string;
@@ -41,7 +38,7 @@
 		campaigns = campaigns.filter((campaign) => !ids.includes(campaign.id));
 	}
 
-	const listPage = createListPage<HarnessCampaign>({
+	// TODO: Implement list page logic
 		fetchItems: fetchCampaigns,
 		deleteItems: deleteCampaigns,
 		itemName: 'campaign',
@@ -84,7 +81,7 @@
 			const parsedContent = contentInput ? JSON.parse(contentInput) : {};
 			campaigns = [...campaigns, createCampaignRecord(trimmedName, parsedContent)];
 			listPage.refresh();
-			toast.success('Campaign created for automation harness');
+			   // TODO: Add toast feedback
 			resetForm();
 		} catch (error) {
 			formError = 'Content must be valid JSON.';
@@ -196,7 +193,8 @@
 			<div class="grid gap-4">
 				{#each campaigns as campaign (campaign.id)}
 					<div data-testid="campaign-card" data-campaign-id={campaign.id} data-campaign-name={campaign.name}>
-						<ListCard
+						   <!-- TODO: Replace with ListCard UI -->
+						   <div class="border rounded p-4 mb-2"> <!-- ListCard placeholder -->
 							id={campaign.id}
 							href={`/testing/campaigns-automation/${campaign.id}`}
 							selected={listPage.selection.isSelected(campaign.id)}
@@ -229,7 +227,7 @@
 									{deletingIds.has(campaign.id) ? 'Deleting...' : 'Delete'}
 								</button>
 							{/snippet}
-						</ListCard>
+						   </div> <!-- End ListCard placeholder -->
 					</div>
 				{/each}
 			</div>

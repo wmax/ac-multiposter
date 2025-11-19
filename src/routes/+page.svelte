@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { authClient } from '$lib/auth-client';
 	import DashboardCard from '$lib/components/ui/DashboardCard.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { hasAccess, parseRoles, parseClaims } from '$lib/authorization';
 	import { FEATURES, getVisibleFeatures } from '$lib/features';
-
+    import LoadingSection from '$lib/components/ui/LoadingSection.svelte';
+	
 	// Use a promise to handle session loading asynchronously
 	let sessionPromise = $state(loadSession());
 	
@@ -21,7 +21,7 @@
 
 <div class="space-y-8">
 	{#await sessionPromise}
-		<Spinner message="Loading your dashboard..." />
+		<LoadingSection message="Loading your dashboard..." />
 	{:then { user, userRoles, userClaims }}
 		{#if user}
 		<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8">

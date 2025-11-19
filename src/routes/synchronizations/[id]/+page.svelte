@@ -7,7 +7,6 @@
 	import { sync } from './sync.remote';
 	import DashboardCard from '$lib/components/ui/DashboardCard.svelte';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
 	import {
 		Calendar,
 		RefreshCw,

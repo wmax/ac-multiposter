@@ -3,7 +3,10 @@
 	import { createEvent } from './create.remote';
     import { listEvents } from '../list.remote';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
+	import { toast } from 'svelte-sonner';
+	import { createEventSchema } from '$lib/validations/event';
+	import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
+	import { Button } from '$lib/components/ui/button';
 	
 	// Form state
 	let isAllDay = $state(false);
@@ -39,14 +42,12 @@
 	const effectiveEndDate = $derived(endDate || defaultEndDate);
 	const effectiveEndTime = $derived(endTime || defaultEndTime());
 
-	// Compute datetime values reactively
+	// Compute datetime values reactively for hidden remote fields
 	const computedStartDateTime = $derived(
-		!isAllDay && startDate && startTime ? `${startDate}T${startTime}:00` : null
+		!isAllDay && startDate && startTime ? `${startDate}T${startTime}:00` : ''
 	);
 	const computedEndDateTime = $derived(
-		!isAllDay && hasEndTime && effectiveEndDate && effectiveEndTime 
-			? `${effectiveEndDate}T${effectiveEndTime}:00` 
-			: null
+		!isAllDay && hasEndTime && effectiveEndDate && effectiveEndTime ? `${effectiveEndDate}T${effectiveEndTime}:00` : ''
 	);
 	const computedReminders = $derived(
 		JSON.stringify(
@@ -65,6 +66,26 @@
 	function removeReminder(index: number) {
 		reminders = reminders.filter((_, i) => i !== index);
 	}
+
+
+
+// Debug: log all validation issues reactively
+$effect(() => {
+	const fieldIssues = Object.entries(createEvent.fields)
+		.map(([key, field]) => {
+			if (typeof field === 'object' && typeof field.issues === 'function') {
+				const issues = field.issues();
+				if (issues && issues.length > 0) {
+					return { key, issues };
+				}
+			}
+			return null;
+		})
+		.filter(Boolean);
+	if (fieldIssues.length > 0) {
+		console.log('Validation issues:', fieldIssues);
+	}
+});
 </script>
 
 <div class="container mx-auto px-4 py-8 max-w-3xl">
@@ -77,23 +98,42 @@
 	
 	<!-- Form with form object spread for remote function -->
 	<form
-		{...createEvent.enhance(async ({ submit }) => {
-			try {
-				await submit().updates(listEvents());
-				toast.success('Event created successfully!');
-				goto('/events');
-			} catch (e) {
-				toast.error('Failed to create event');
-			}
-		})}
+		{...createEvent
+			.preflight(createEventSchema)
+			.enhance(async ({ submit, form }) => {
+				console.log('Form submission started');
+				console.log('Remote function enhance triggered');
+				// Log validation result
+				const validation = await createEvent.validate();
+				console.log('Validation result:', validation);
+				// Log form data
+				const formData = new FormData(form);
+				for (const [key, value] of formData.entries()) {
+					console.log('Form field:', key, value);
+				}
+				try {
+					const result: any = await submit();
+					if (result?.error) {
+						toast.error(result.error.message || 'Oh no! Something went wrong');
+						return;
+					}
+					toast.success('Successfully Saved!');
+					await goto('/events');
+				} catch (error: unknown) {
+					const err = error as { message?: string };
+					toast.error(err?.message || 'Oh no! Something went wrong');
+				}
+			})}
 		class="space-y-6"
 	>
 		<!-- Hidden computed fields -->
 		{#if computedStartDateTime}
 			<input {...createEvent.fields.startDateTime.as('hidden', computedStartDateTime)} />
+			{@html `<script>console.log('startDateTime:', ${JSON.stringify(computedStartDateTime)});<\/script>`}
 		{/if}
 		{#if computedEndDateTime}
 			<input {...createEvent.fields.endDateTime.as('hidden', computedEndDateTime)} />
+			{@html `<script>console.log('endDateTime:', ${JSON.stringify(computedEndDateTime)});<\/script>`}
 		{/if}
 		<input type="hidden" name="reminders" value={computedReminders} />
 		<input
@@ -130,9 +170,13 @@
 					id="summary"
 					{...createEvent.fields.summary.as('text')}
 					required
-					class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+					class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 {(createEvent.fields.summary.issues()?.length ?? 0) > 0 ? 'border-red-500' : 'border-gray-300'}"
 					placeholder="Event title"
+					onblur={() => createEvent.validate()}
 				/>
+				{#each createEvent.fields.summary.issues() ?? [] as issue}
+					<p class="mt-1 text-sm text-red-600">{issue.message}</p>
+				{/each}
 			</div>
 
 			<div>
@@ -141,9 +185,13 @@
 					id="description"
 					{...createEvent.fields.description.as('text')}
 					rows="4"
-					class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+					class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 {(createEvent.fields.description.issues()?.length ?? 0) > 0 ? 'border-red-500' : 'border-gray-300'}"
 					placeholder="Event description"
+					onblur={() => createEvent.validate()}
 				></textarea>
+				{#each createEvent.fields.description.issues() ?? [] as issue}
+					<p class="mt-1 text-sm text-red-600">{issue.message}</p>
+				{/each}
 			</div>
 
 			<div>
@@ -151,9 +199,13 @@
 				<input
 					id="location"
 					{...createEvent.fields.location.as('text')}
-					class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+					class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 {(createEvent.fields.location.issues()?.length ?? 0) > 0 ? 'border-red-500' : 'border-gray-300'}"
 					placeholder="Event location"
+					onblur={() => createEvent.validate()}
 				/>
+				{#each createEvent.fields.location.issues() ?? [] as issue}
+					<p class="mt-1 text-sm text-red-600">{issue.message}</p>
+				{/each}
 			</div>
 		</div>
 
@@ -183,8 +235,12 @@
 						required 
 						value={startDate}
 						oninput={(e) => startDate = e.currentTarget.value}
-						class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" 
+						class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 {(createEvent.fields.startDate.issues()?.length ?? 0) > 0 ? 'border-red-500' : 'border-gray-300'}" 
+						onblur={() => createEvent.validate()}
 					/>
+					{#each createEvent.fields.startDate.issues() ?? [] as issue}
+						<p class="mt-1 text-sm text-red-600">{issue.message}</p>
+					{/each}
 				</div>
 				{#if !isAllDay}
 					<div>
@@ -198,7 +254,8 @@
 							required 
 							value={startTime}
 							oninput={(e) => startTime = e.currentTarget.value}
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" 
+							class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 border-gray-300" 
+							onblur={() => createEvent.validate()}
 						/>
 					</div>
 				{/if}
@@ -224,19 +281,24 @@
 							{...createEvent.fields.endDate.as('date')}
 							value={effectiveEndDate}
 							oninput={(e) => endDate = e.currentTarget.value}
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+							class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 {(createEvent.fields.endDate.issues()?.length ?? 0) > 0 ? 'border-red-500' : 'border-gray-300'}"
+							onblur={() => createEvent.validate()}
 						/>
+						{#each createEvent.fields.endDate.issues() ?? [] as issue}
+							<p class="mt-1 text-sm text-red-600">{issue.message}</p>
+						{/each}
 					</div>
 					{#if !isAllDay}
 						<div>
 							<label for="endTime" class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
-							<input 
-								id="endTime" 
+							<input
+								id="endTime"
 								name="endTime"
 								type="time"
 								value={effectiveEndTime}
 								oninput={(e) => endTime = e.currentTarget.value}
-								class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+								class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 border-gray-300"
+								onblur={() => createEvent.validate()}
 							/>
 						</div>
 					{/if}
@@ -250,9 +312,13 @@
 						id="startTimeZone"
 						{...createEvent.fields.startTimeZone.as('text')}
 						value={browserTimezone}
-						class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+						class="w-full px-3 py-2 border rounded-md bg-gray-50 focus:ring-2 focus:ring-blue-500 {(createEvent.fields.startTimeZone.issues()?.length ?? 0) > 0 ? 'border-red-500' : 'border-gray-300'}"
 						readonly
+						onblur={() => createEvent.validate()}
 					/>
+					{#each createEvent.fields.startTimeZone.issues() ?? [] as issue}
+						<p class="mt-1 text-sm text-red-600">{issue.message}</p>
+					{/each}
 					<input {...createEvent.fields.endTimeZone.as('hidden', browserTimezone)} />
 				</div>
 			{/if}
@@ -279,7 +345,9 @@
 								value={reminder.method}
 								onchange={(e) => reminder.method = e.currentTarget.value}
 								class="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+								onblur={() => createEvent.validate()}
 							>
+								<!-- No per-field issues for select, but could add if needed -->
 								<option value="popup">Popup</option>
 								<option value="email">Email</option>
 							</select>
@@ -290,7 +358,9 @@
 								min="0" 
 								max="40320" 
 								class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+								onblur={() => createEvent.validate()}
 							/>
+							<!-- No per-field issues for reminder.minutes, but could add if needed -->
 							<span class="flex items-center text-sm text-gray-700">minutes before</span>
 							<button type="button" onclick={() => removeReminder(i)} class="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600">Remove</button>
 						</div>
@@ -338,20 +408,21 @@
 		</div>
 
 		<!-- Actions -->
-		<div class="flex gap-2 justify-end">
-			<button 
-				type="button" 
-				onclick={() => goto('/events')} 
-				class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-			>
-				Cancel
-			</button>
-			<button 
-				type="submit" 
-				class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+		<div class="flex gap-3 mt-6 justify-end">
+			<AsyncButton
+				type="submit"
+				loadingLabel="Creating..."
+				loading={createEvent.pending}
 			>
 				Create Event
-			</button>
+			</AsyncButton>
+			<Button
+				variant="secondary"
+				href="/events"
+				size="default"
+			>
+				Cancel
+			</Button>
 		</div>
 	</form>
 </div>

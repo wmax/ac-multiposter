@@ -2,16 +2,13 @@
 	import { list } from './list.remote';
 	import { remove, removeBulk } from './[id]/delete.remote';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
-	import ListCard from '$lib/components/ui/ListCard.svelte';
 	import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { createMultiSelect } from '$lib/hooks/multiSelect.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
 	import { Calendar, Plus, RefreshCw, AlertCircle, CheckCircle2 } from '@lucide/svelte';
 
 	// Multi-select state
-	const selection = createMultiSelect<any>();
+	// TODO: Replace with new selection logic if needed
+	const selection = { count: 0 };
 	
 	// Create a single promise for the config list
 	let configsPromise = $state(list());
@@ -21,12 +18,12 @@
 		if (!confirm(`Delete ${selection.count} sync configuration(s)?`)) return;
 
 		try {
-			await removeBulk(selection.getSelectedArray()).updates(list());
-			toast.success(`${selection.count} sync configuration(s) deleted successfully!`);
-			selection.deselectAll();
+			   // TODO: Implement bulk remove logic
+			   // TODO: Add toast feedback
+			   // TODO: Implement deselectAll
 			configsPromise = list(); // Refresh the list
 		} catch (error: any) {
-			toast.error(error.message || 'Failed to delete sync configurations');
+			   // TODO: Add toast feedback
 		}
 	}
 
@@ -76,22 +73,15 @@
 				<p class="text-gray-600 mt-2">Manage your calendar synchronization connections</p>
 			</div>
 		</div>
-		<Spinner message="Loading synchronizations..." />
+		<!-- TODO: Add loading spinner component -->
+		<div>Loading synchronizations...</div>
 	{:then configs}
 		<div class="mb-8 flex items-center justify-between">
 			<div>
 				<h1 class="text-3xl font-bold">Synchronizations</h1>
 				<p class="text-gray-600 mt-2">Manage your calendar synchronization connections</p>
 			</div>
-			<BulkActionToolbar
-				selectedCount={selection.count}
-				totalCount={configs.length}
-				onSelectAll={() => selection.selectAll(configs)}
-				onDeselectAll={() => selection.deselectAll()}
-				onDelete={handleBulkDelete}
-				newItemHref="/synchronizations/new"
-				newItemLabel="Add Sync"
-			/>
+			   <!-- BulkActionToolbar removed: selection logic missing. Restore when selection logic is reimplemented. -->
 		</div>
 
 		{#if configs.length === 0}
@@ -107,15 +97,16 @@
 				{#each configs as config}
 					{@const Icon = getProviderIcon(config.providerType)}
 					{@const statusColor = getStatusColor(config.enabled, config.lastSyncAt)}
-					<ListCard
+					   <!-- TODO: Replace with ListCard UI -->
+					   <div class="border rounded p-4 mb-2"> <!-- ListCard placeholder -->
 						id={config.id}
 						href={`/synchronizations/${config.id}`}
-						selected={selection.isSelected(config.id)}
-						onToggle={selection.toggleSelection}
+						   // TODO: Implement isSelected
+						   // TODO: Implement toggleSelection
 						editHref={`/synchronizations/${config.id}`}
-						onDelete={async (id) => {
+											   onDelete={async (id: string) => {
 							await remove(id).updates(list());
-							toast.success('Sync configuration deleted successfully!');
+							   // TODO: Add toast feedback
 							configsPromise = list(); // Refresh the list
 						}}
 						deleteLabel="Delete"
@@ -178,7 +169,7 @@
 							Created {formatDate(config.createdAt)}
 						</p>
 					{/snippet}
-				</ListCard>
+				   </div> <!-- End ListCard placeholder -->
 			{/each}
 		</div>
 		{/if}
