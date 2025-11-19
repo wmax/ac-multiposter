@@ -9,8 +9,8 @@
 	import LoadingSection from '$lib/components/ui/LoadingSection.svelte';
 	import ErrorSection from '$lib/components/ui/ErrorSection.svelte';
     import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
-	import { toast } from 'svelte-sonner';
 	import { handleDelete } from '$lib/hooks/handleDelete.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 
 	let itemsPromise = $state<Promise<Campaign[]>>(listCampaigns());
 	let initializedItems = $state<Campaign[]>([]);
@@ -46,22 +46,22 @@
 			<div class="flex justify-between items-center mb-6 gap-4">
 				<h1 class="text-3xl font-bold flex-shrink-0">Campaigns</h1>
 				<div class="flex-1 flex justify-end">
-					<BulkActionToolbar 
+					<BulkActionToolbar
 						selectedCount={selectedIds.size}
 						totalCount={initializedItems.length}
 						onSelectAll={() => selectAll(initializedItems)}
 						onDeselectAll={deselectAll}
-						onDelete={async () => { 
-												await handleDelete({
-																	ids: [...selectedIds],
-																	deleteFn: deleteCampaigns,
-																	itemName: 'campaign' 
-																}); 
-												deselectAll();
-											}
-										}
+						onDelete={async () => {
+							await handleDelete({
+								ids: [...selectedIds],
+								deleteFn: deleteCampaigns,
+								itemName: 'campaign'
+							});
+							deselectAll();
+						}}
 						newItemHref="/campaigns/new"
-						newItemLabel="+ New Campaign" />
+						newItemLabel="+ New Campaign"
+					/>
 				</div>
 			</div>
 
@@ -72,15 +72,13 @@
 
 				<div class="grid gap-4">
 					{#if items.length === 0}
-						<!-- EmptyState -->
-						<div class="rounded-lg border border-gray-200 bg-white p-8 text-center">
-							<div class="text-center py-8">
-								<Megaphone class="h-16 w-16 text-gray-300 mx-auto mb-4" />
-								<h2 class="text-xl font-semibold text-gray-700 mb-2">No Campaigns</h2>
-								<p class="text-gray-500 mb-4">Get started by creating your first campaign</p>
-								<a href="/campaigns/new" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Create Your First Campaign</a>
-							</div>
-						</div>
+						<EmptyState
+							icon={Megaphone}
+							title="No Campaigns"
+							description="Get started by creating your first campaign"
+							actionLabel="Create Your First Campaign"
+							actionHref="/campaigns/new"
+						/>
 					{:else}
 						{#each items as campaign (campaign.id)}
 							<div class="mb-6 last:mb-0">

@@ -8,24 +8,15 @@
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 	import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
 	import ErrorSection from '$lib/components/ui/ErrorSection.svelte';
+	import LoadingSection from '$lib/components/ui/LoadingSection.svelte';
 	import { toast } from 'svelte-sonner';
 	import { updateCampaignSchema } from '$lib/validations/campaign';
 	import { Button } from '$lib/components/ui/button';
-
-	function handleDeleteWithConfirm(campaign: Campaign) {
-		if (!confirm(`Delete campaign "${campaign.name}"?`)) {
-			return false;
-		}
-		return true;
-	}
+	import { handleDelete } from '$lib/hooks/handleDelete.svelte';
 </script>
 <div class="container mx-auto px-4 py-8">
 	{#await readCampaign(page.params.id || '')}
-		<div class="text-center py-12">
-			<div class="text-gray-600">
-				Loading campaign...
-			</div>
-		</div>
+		   <LoadingSection message="Loading campaign..." />
 	{:then campaign}
 		{#if campaign}
 			<div class="max-w-2xl mx-auto">
@@ -47,19 +38,14 @@
 								loadingLabel="Deleting..."
 								loading={deleteCampaigns.pending}
 								variant="destructive"
-								onclick={() => {
-									if (handleDeleteWithConfirm(campaign)) {
-										(async () => {
-											try {
-												await deleteCampaigns([campaign.id]);
-												toast.success('Campaign deleted successfully!');
-												await goto('/campaigns');
-											} catch (error) {
-												toast.error('Failed to delete campaign');
-											}
-										})();
+								onclick={async () => { 
+										await handleDelete({
+															ids: [campaign.id],
+															deleteFn: deleteCampaigns,
+															itemName: 'campaign' }
+														); 
 									}
-								}}
+								}
 							>
 								Delete
 							</AsyncButton>
@@ -85,7 +71,7 @@
 							}
 						class="space-y-6"
 					>
-						<input {...updateCampaign.fields.name.as('hidden', campaign.id)} />
+						<input {...updateCampaign.fields.id.as('hidden', campaign.id)} />
 						<div class="space-y-4">
 							<label class="block">
 								<span class="text-sm font-medium text-gray-700 mb-2">Campaign Name</span>
