@@ -2,20 +2,19 @@
 	import { listCampaigns } from './list.remote';
 	import { deleteCampaigns } from './[id]/delete.remote';
 	import type { Campaign } from './list.remote';
-	// Inlined ListPageLayout, BulkActionToolbar, EmptyState, Spinner
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
 	import { Megaphone } from '@lucide/svelte';
+	import LoadingSection from '$lib/components/ui/LoadingSection.svelte';
+	import ErrorSection from '$lib/components/ui/ErrorSection.svelte';
     import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
-
-
+	import { toast } from 'svelte-sonner';
+	import { handleDelete } from '$lib/hooks/handleDelete.svelte';
 
 	let itemsPromise = $state<Promise<Campaign[]>>(listCampaigns());
 	let initializedItems = $state<Campaign[]>([]);
 	let selectedIds = $state<Set<string>>(new Set());
-	let selectionVersion = $state(0);
-	import { toast } from 'svelte-sonner';
 
 	function isSelected(id: string) {
 		return selectedIds.has(id);
@@ -28,51 +27,16 @@
 		}
 		// Force reactivity
 		selectedIds = new Set(selectedIds);
-		selectionVersion++;
 	}
 	function selectAll(items: Campaign[]) {
 		selectedIds = new Set(items.map((item) => item.id));
-		selectionVersion++;
 	}
 	function deselectAll() {
 		selectedIds = new Set();
-		selectionVersion++;
-	}
-	function getSelectedArray() {
-		return Array.from(selectedIds);
 	}
 
-	async function handleBulkDelete() {
-		const ids = getSelectedArray();
-		const count = ids.length;
-		if (count === 0) return;
-		if (!confirm(`Delete ${count} campaign${count === 1 ? '' : 's'}?`)) return;
-		try {
-			await deleteCampaigns(ids).updates(listCampaigns());
-			toast.success(`${count} campaign${count === 1 ? '' : 's'} deleted successfully!`);
-			deselectAll();
-			refresh();
-		} catch (error: any) {
-			toast.error(error.message || 'Failed to delete campaigns');
-		}
-	}
 
-	async function handleDelete(id: string) {
-		if (!confirm('Delete this item?')) return;
-		try {
-			await deleteCampaigns([id]).updates(listCampaigns());
-			selectedIds.delete(id);
-			selectedIds = new Set(selectedIds);
-			toast.success('Campaign deleted successfully!');
-			refresh();
-		} catch (error: any) {
-			toast.error(error.message || 'Failed to delete campaign');
-		}
-	}
 
-	function refresh() {
-		itemsPromise = listCampaigns();
-	}
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -87,17 +51,22 @@
 						totalCount={initializedItems.length}
 						onSelectAll={() => selectAll(initializedItems)}
 						onDeselectAll={deselectAll}
-						onDelete={handleBulkDelete}
+						onDelete={async () => { 
+												await handleDelete({
+																	ids: [...selectedIds],
+																	deleteFn: deleteCampaigns,
+																	itemName: 'campaign' 
+																}); 
+												deselectAll();
+											}
+										}
 						newItemHref="/campaigns/new"
 						newItemLabel="+ New Campaign" />
 				</div>
 			</div>
 
 			{#await itemsPromise}
-				<div class="flex flex-col items-center justify-center py-12">
-					<svg class="h-8 w-8 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke-width="4" class="opacity-75"/></svg>
-					<p class="mt-3 text-gray-500 text-sm">Loading campaigns...</p>
-				</div>
+				<LoadingSection message="Loading campaigns..." />
 			{:then items}
 				{@html (() => { initializedItems = items; return '' })()}
 
@@ -158,7 +127,6 @@
 											variant="default"
 											size="default"
 											class="text-center"
-											onclick={(e: MouseEvent) => e.stopPropagation()}
 										>
 											Edit
 										</Button>
@@ -167,11 +135,16 @@
 											size="default"
 											loading={false}
 											loadingLabel="Deleting..."
-											onclick={async (e: MouseEvent) => {
-												e.stopPropagation();
-												if (!confirm('Delete this item?')) return;
-												await handleDelete(campaign.id);
-											}}
+											onclick={
+												async () => { 
+													await handleDelete({
+																		ids: [campaign.id],
+																		deleteFn: deleteCampaigns,
+																		itemName: 'campaign' }
+																	); 
+													toggleSelection(campaign.id);
+												}
+											}
 										>
 											Delete
 										</AsyncButton>
@@ -182,15 +155,12 @@
 					{/if}
 				</div>
 			{:catch error}
-				<div class="text-center py-12">
-					<p class="text-red-600 mb-3">{error?.message || 'Failed to load campaigns'}</p>
-					<button 
-						onclick={() => itemsPromise = itemsPromise}
-						class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-					>
-						Retry
-					</button>
-				</div>
+				<ErrorSection
+					headline="Failed to load campaigns"
+					message={error?.message || 'An unexpected error occurred.'}
+					href="/campaigns"
+					button="Retry"
+				/>
 			{/await}
 		</div>
 	</div>

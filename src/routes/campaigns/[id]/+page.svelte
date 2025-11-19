@@ -6,9 +6,9 @@
 	import { deleteCampaigns } from './delete.remote';
 	import type { Campaign } from '../list.remote';
 	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
-	import ErrorSection from '$lib/components/ui/ErrorSection.svelte';
 	import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
+	import ErrorSection from '$lib/components/ui/ErrorSection.svelte';
+	import { toast } from 'svelte-sonner';
 	import { updateCampaignSchema } from '$lib/validations/campaign';
 	import { Button } from '$lib/components/ui/button';
 
