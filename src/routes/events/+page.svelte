@@ -115,7 +115,6 @@
 										checked={isSelected(event.id)}
 										onchange={() =>
 											toggleSelection(event.id)}
-										onclick={(e) => e.stopPropagation()}
 										class="mt-1 w-4 h-4 text-blue-600"
 									/>
 									<div class="flex-1">
@@ -129,8 +128,6 @@
 													<a
 														href={`/events/${event.id}`}
 														class="hover:underline text-blue-600"
-														onclick={(e) =>
-															e.stopPropagation()}
 													>
 														{event.summary}
 													</a>

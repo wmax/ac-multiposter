@@ -15,7 +15,7 @@ import {
 	webhookSubscription as webhookSubscriptionTable,
 	event as eventTable
 } from '../db/schema';
-import { eq, and, isNull, lt, inArray } from 'drizzle-orm';
+import { eq, and, isNull, lt, inArray, desc } from 'drizzle-orm';
 import { GoogleCalendarProvider } from './providers/google-calendar';
 import crypto from 'crypto';
 import { env } from '$env/dynamic/private';
@@ -208,10 +208,10 @@ export class SyncService {
 
 		try {
 			console.log(`[SyncService] Pulling events from provider, syncToken: ${config.syncToken ? 'present' : 'absent'}`);
-			
+
 			// Pull events using sync token if available
 			const { events, nextSyncToken } = await provider.pullEvents(config.syncToken);
-			
+
 			console.log(`[SyncService] Received ${events.length} events from provider`);
 			console.log(`[SyncService] Next sync token: ${nextSyncToken ? 'present' : 'absent'}`);
 
@@ -245,7 +245,7 @@ export class SyncService {
 				status: error.status,
 				stack: error.stack
 			});
-			result.errors.push({ 
+			result.errors.push({
 				message: `Pull failed: ${error.message}${error.code ? ` (code: ${error.code})` : ''}${error.status ? ` (status: ${error.status})` : ''}`
 			});
 		}
@@ -350,20 +350,20 @@ export class SyncService {
 		if (mapping) {
 			// Update existing event
 			console.log(`[SyncService] Updating existing local event ${mapping.eventId} from external ${externalEvent.externalId}`);
-			
+
 			// Get current event to check timestamps
 			const [currentEvent] = await db
 				.select()
 				.from(eventTable)
 				.where(eq(eventTable.id, mapping.eventId));
-			
+
 			if (currentEvent) {
 				// Skip update if we just modified it locally (within last 30 seconds)
 				// This prevents echo loops in bidirectional sync
 				const timeSinceUpdate = Date.now() - currentEvent.updatedAt.getTime();
 				if (timeSinceUpdate < 30000) {
 					console.log(`[SyncService] Skipping update for ${mapping.eventId} - recently modified locally (${timeSinceUpdate}ms ago)`);
-					
+
 					// Still update the mapping timestamp to prevent re-processing
 					await db
 						.update(syncMappingTable)
@@ -372,7 +372,7 @@ export class SyncService {
 					return;
 				}
 			}
-			
+
 			const internalEvent = this.mapExternalToInternal(externalEvent, config.userId);
 
 			await db
@@ -389,7 +389,7 @@ export class SyncService {
 			// that was just created (within last 30 seconds). This prevents duplicates when:
 			// 1. User creates event locally → pushes to Google → webhook fires → tries to pull back
 			console.log(`[SyncService] Checking for recently created local events before creating new one`);
-			
+
 			const recentEvents = await db
 				.select()
 				.from(eventTable)
@@ -399,20 +399,20 @@ export class SyncService {
 						eq(eventTable.summary, externalEvent.summary)
 					)
 				);
-			
+
 			// Check if any recent event matches this external event
 			for (const recentEvent of recentEvents) {
 				const timeSinceCreation = Date.now() - recentEvent.createdAt.getTime();
-				
+
 				// If we find a very recently created event with same summary and similar time
 				if (timeSinceCreation < 30000) {
-					const startTimesMatch = 
+					const startTimesMatch =
 						(recentEvent.startDate === externalEvent.startDate) ||
 						(recentEvent.startDateTime?.toISOString() === externalEvent.startDateTime?.toISOString());
-					
+
 					if (startTimesMatch) {
 						console.log(`[SyncService] Found matching recent local event ${recentEvent.id}, creating mapping instead of duplicate`);
-						
+
 						// Create mapping to link this local event to the external one
 						await db.insert(syncMappingTable).values({
 							id: crypto.randomUUID(),
@@ -423,12 +423,12 @@ export class SyncService {
 							etag: externalEvent.etag ?? null,
 							lastSyncedAt: new Date()
 						});
-						
+
 						return; // Don't create duplicate
 					}
 				}
 			}
-			
+
 			// Create new event - no matching local event found
 			console.log(`[SyncService] Creating new local event from external ${externalEvent.externalId}`);
 			const internalEvent = this.mapExternalToInternal(externalEvent, config.userId);
@@ -492,21 +492,8 @@ export class SyncService {
 		}
 
 		// Cancel existing webhooks
-		const existingSubscriptions = await db
-			.select()
-			.from(webhookSubscriptionTable)
-			.where(eq(webhookSubscriptionTable.syncConfigId, configId));
-
-		for (const sub of existingSubscriptions) {
-			try {
-				if (provider.cancelWebhook) {
-					await provider.cancelWebhook(sub);
-				}
-			} catch (error) {
-				console.error('Failed to cancel existing webhook:', error);
-			}
-			await db.delete(webhookSubscriptionTable).where(eq(webhookSubscriptionTable.id, sub.id));
-		}
+		// Cancel existing webhooks
+		await this.removeWebhook(configId);
 
 		// Construct callback URL
 		const baseUrl = env.BETTER_AUTH_URL || 'https://localhost:5173';
@@ -532,6 +519,71 @@ export class SyncService {
 				});
 			}
 		}
+	}
+
+
+	/**
+	 * Remove webhook for a sync config
+	 */
+	async removeWebhook(configId: string): Promise<void> {
+		console.log(`[SyncService] Removing webhook for config: ${configId}`);
+
+		const [configRow] = await db.select().from(syncConfigTable).where(eq(syncConfigTable.id, configId));
+		if (!configRow) return;
+
+		const config = this.rowToConfig(configRow);
+
+		// We try to get the provider, but if it fails (e.g. auth error), we still want to delete the subscription from DB
+		let provider: SyncProvider | undefined;
+		try {
+			provider = await this.getProviderInstance(config);
+		} catch (e) {
+			console.warn(`[SyncService] Could not get provider instance while removing webhook:`, e);
+		}
+
+		const existingSubscriptions = await db
+			.select()
+			.from(webhookSubscriptionTable)
+			.where(eq(webhookSubscriptionTable.syncConfigId, configId));
+
+		for (const sub of existingSubscriptions) {
+			try {
+				if (provider && provider.cancelWebhook) {
+					await provider.cancelWebhook(sub);
+				}
+			} catch (error) {
+				console.error('Failed to cancel existing webhook:', error);
+			}
+			await db.delete(webhookSubscriptionTable).where(eq(webhookSubscriptionTable.id, sub.id));
+		}
+
+		await db
+			.update(syncConfigTable)
+			.set({ webhookId: null })
+			.where(eq(syncConfigTable.id, configId));
+	}
+
+	/**
+	 * Check webhook status for a sync config
+	 */
+	async checkWebhookStatus(configId: string): Promise<{ active: boolean; expiresAt?: Date }> {
+		const [subscription] = await db
+			.select()
+			.from(webhookSubscriptionTable)
+			.where(eq(webhookSubscriptionTable.syncConfigId, configId))
+			.orderBy(desc(webhookSubscriptionTable.createdAt))
+			.limit(1);
+
+		if (!subscription) {
+			return { active: false };
+		}
+
+		const now = new Date();
+		if (subscription.expiresAt < now) {
+			return { active: false, expiresAt: subscription.expiresAt };
+		}
+
+		return { active: true, expiresAt: subscription.expiresAt };
 	}
 
 	/**
@@ -759,7 +811,7 @@ export class SyncService {
 			if (mapping) {
 				// Update existing event
 				console.log(`[SyncService] Updating event ${eventId} on provider (external ID: ${mapping.externalId})`);
-				
+
 				// Check if this event was recently synced from provider (within last 30 seconds)
 				// This prevents echo loops where: provider → pull → local update → push back
 				if (mapping.lastSyncedAt) {
@@ -769,7 +821,7 @@ export class SyncService {
 						return;
 					}
 				}
-				
+
 				const externalEvent = this.mapInternalToExternal(eventRow, config.providerType);
 				const { etag } = await provider.updateEvent(mapping.externalId, externalEvent);
 
@@ -793,7 +845,7 @@ export class SyncService {
 					etag: etag ?? null,
 					lastSyncedAt: new Date()
 				});
-				
+
 				console.log(`[SyncService] Created mapping for event ${eventId} → external ${externalId}`);
 			}
 
