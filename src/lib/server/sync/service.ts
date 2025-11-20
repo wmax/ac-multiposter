@@ -389,6 +389,12 @@ export class SyncService {
 			// that was just created (within last 30 seconds). This prevents duplicates when:
 			// 1. User creates event locally → pushes to Google → webhook fires → tries to pull back
 			console.log(`[SyncService] Checking for recently created local events before creating new one`);
+			console.log(`[SyncService] External event details:`, {
+				summary: externalEvent.summary,
+				startDateTime: externalEvent.startDateTime,
+				startDate: externalEvent.startDate,
+				externalId: externalEvent.externalId
+			});
 
 			const recentEvents = await db
 				.select()
@@ -400,15 +406,42 @@ export class SyncService {
 					)
 				);
 
+			console.log(`[SyncService] Found ${recentEvents.length} candidates with same summary`);
+
 			// Check if any recent event matches this external event
 			for (const recentEvent of recentEvents) {
 				const timeSinceCreation = Date.now() - recentEvent.createdAt.getTime();
+				console.log(`[SyncService] Checking candidate ${recentEvent.id}:`, {
+					timeSinceCreation,
+					startDateTime: recentEvent.startDateTime,
+					startDate: recentEvent.startDate
+				});
 
 				// If we find a very recently created event with same summary and similar time
-				if (timeSinceCreation < 30000) {
-					const startTimesMatch =
-						(recentEvent.startDate === externalEvent.startDate) ||
-						(recentEvent.startDateTime?.toISOString() === externalEvent.startDateTime?.toISOString());
+				if (timeSinceCreation < 60000) { // Increased window to 60s
+					// Compare times more robustly
+					let startTimesMatch = false;
+
+					if (recentEvent.startDate && externalEvent.startDate) {
+						startTimesMatch = recentEvent.startDate === externalEvent.startDate;
+					} else if (recentEvent.startDateTime && externalEvent.startDateTime) {
+						// Compare timestamps to handle timezone differences
+						const t1 = recentEvent.startDateTime.getTime();
+						const t2 = externalEvent.startDateTime.getTime();
+						// Allow 1 second difference
+						startTimesMatch = Math.abs(t1 - t2) < 1000;
+					} else if (recentEvent.startDateTime && externalEvent.startDate) {
+						// Cross-type match: Local is timed, External is all-day
+						// Check if the timed event falls on the all-day date
+						const localDate = recentEvent.startDateTime.toISOString().split('T')[0];
+						startTimesMatch = localDate === externalEvent.startDate;
+					} else if (recentEvent.startDate && externalEvent.startDateTime) {
+						// Cross-type match: Local is all-day, External is timed
+						const externalDate = externalEvent.startDateTime.toISOString().split('T')[0];
+						startTimesMatch = recentEvent.startDate === externalDate;
+					}
+
+					console.log(`[SyncService] Match result for ${recentEvent.id}:`, { startTimesMatch });
 
 					if (startTimesMatch) {
 						console.log(`[SyncService] Found matching recent local event ${recentEvent.id}, creating mapping instead of duplicate`);
