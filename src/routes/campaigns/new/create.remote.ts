@@ -28,7 +28,7 @@ export const createCampaign = form(createCampaignSchema, async (data) => {
 		}
 
 	
-		// await listCampaigns().refresh();
+		await listCampaigns().refresh();
 		return { success: true };
 	} catch (error: any) {
 		// Check if this is a redirect error being thrown by SvelteKit

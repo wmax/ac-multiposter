@@ -30,13 +30,19 @@ export const eventBaseSchema = z.object({
 		useDefault: z.boolean(),
 		overrides: z.optional(z.array(z.object({
 			method: z.string(),
-			minutes: z.number(),
-		}))),
+			minutes: z.number()
+		})))
 	})),
 	guestsCanInviteOthers: z.optional(z.boolean()),
 	guestsCanModify: z.optional(z.boolean()),
 	guestsCanSeeOtherGuests: z.optional(z.boolean()),
 });
+
+/**
+ * Schema for creating events (no id field)
+ * Mirrors updateEventSchema but omits id
+ */
+export const createEventSchema = eventBaseSchema;
 
 /**
  * Schema for event creation
@@ -75,8 +81,8 @@ export const updateEventSchema = z.object({
 		useDefault: z.boolean(),
 		overrides: z.optional(z.array(z.object({
 			method: z.string(),
-			minutes: z.number(),
-		}))),
+			minutes: z.number()
+		})))
 	})),
 	guestsCanInviteOthers: z.optional(z.boolean()),
 	guestsCanModify: z.optional(z.boolean()),

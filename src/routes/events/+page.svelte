@@ -1,177 +1,193 @@
 <script lang="ts">
-	import { listEvents } from './list.remote';
-	import { deleteEvents } from './[id]/delete.remote';
-	import type { Event } from './list.remote';
-	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
-	import ListCard from '$lib/components/ui/ListCard.svelte';
-	import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { createMultiSelect } from '$lib/hooks/multiSelect.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
-	import { Calendar, Plus } from '@lucide/svelte';
+	import { listEvents } from "./list.remote";
+	import type { Event } from "./list.remote";
+	import { deleteEvents } from "./delete.remote";
+	import Breadcrumb from "$lib/components/ui/Breadcrumb.svelte";
+	import Button from "$lib/components/ui/button/button.svelte";
+	import AsyncButton from "$lib/components/ui/AsyncButton.svelte";
+	import { Calendar } from "@lucide/svelte";
+	import LoadingSection from "$lib/components/ui/LoadingSection.svelte";
+	import ErrorSection from "$lib/components/ui/ErrorSection.svelte";
+	import BulkActionToolbar from "$lib/components/ui/BulkActionToolbar.svelte";
+	import { handleDelete } from "$lib/hooks/handleDelete.svelte";
+	import EmptyState from "$lib/components/ui/EmptyState.svelte";
 
-	// Multi-select state
-	const selection = createMultiSelect<Event>();
-	
-	// Create a single promise for the events list
-	let eventsPromise = $state(listEvents());
+	let itemsPromise = $state<Promise<Event[]>>(listEvents());
+	let initializedItems = $state<Event[]>([]);
+	let selectedIds = $state<Set<string>>(new Set());
 
-	async function handleBulkDelete() {
-		if (selection.count === 0) return;
-		const count = selection.count;
-		if (!confirm(`Delete ${count} event(s)?`)) return;
-
-		try {
-			await deleteEvents(selection.getSelectedArray()).updates(listEvents());
-			toast.success(`${count} event(s) deleted successfully!`);
-			selection.deselectAll();
-			eventsPromise = listEvents(); // Refresh the list
-		} catch (error: any) {
-			toast.error(error.message || 'Failed to delete events');
+	function isSelected(id: string) {
+		return selectedIds.has(id);
+	}
+	function toggleSelection(id: string) {
+		if (selectedIds.has(id)) {
+			selectedIds.delete(id);
+		} else {
+			selectedIds.add(id);
 		}
+		selectedIds = new Set(selectedIds);
+	}
+	function selectAll(items: Event[]) {
+		selectedIds = new Set(items.map((item) => item.id));
+	}
+	function deselectAll() {
+		selectedIds = new Set();
 	}
 
 	function formatEventTime(event: Event): string {
-		// Handle all-day events
 		if (event.startDate) {
 			return `All day on ${event.startDate}`;
 		}
-		
-		// Handle timed events
 		if (event.startDateTime) {
 			const start = new Date(event.startDateTime);
 			const end = event.endDateTime ? new Date(event.endDateTime) : null;
 			const dateStr = start.toLocaleDateString();
-			const startTime = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-			
+			const startTime = start.toLocaleTimeString([], {
+				hour: "2-digit",
+				minute: "2-digit",
+			});
 			if (end) {
-				const endTime = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+				const endTime = end.toLocaleTimeString([], {
+					hour: "2-digit",
+					minute: "2-digit",
+				});
 				return `${dateStr}, ${startTime} - ${endTime}`;
 			}
-			
 			return `${dateStr}, ${startTime}`;
 		}
-		
-		return 'Time not specified';
+		return "Time not specified";
 	}
 </script>
 
 <div class="container mx-auto px-4 py-8">
-	<Breadcrumb feature="events" />
-
-	{#await eventsPromise}
-		<div class="flex justify-between items-center mb-6">
-			<h1 class="text-3xl font-bold">Calendar Events</h1>
-		</div>
-		<Spinner message="Loading events..." />
-	{:then events}
-		<div class="flex justify-between items-center mb-6">
-			<h1 class="text-3xl font-bold">Calendar Events</h1>
-			<BulkActionToolbar
-				selectedCount={selection.count}
-				totalCount={events.length}
-				onSelectAll={() => selection.selectAll(events)}
-				onDeselectAll={() => selection.deselectAll()}
-				onDelete={handleBulkDelete}
-				newItemHref="/events/new"
-				newItemLabel="+ New Event"
-			/>
-		</div>
-
-		<div class="grid gap-4">
-			{#if events.length === 0}
-				<EmptyState
-					icon={Calendar}
-					title="No Events"
-					description="Get started by creating your first calendar event"
-					actionLabel="Create Your First Event"
-					actionHref="/events/new"
-				/>
-			{:else}
-				{#each events as event (event.id)}
-					<ListCard
-						id={event.id}
-						href={`/events/${event.id}`}
-						selected={selection.isSelected(event.id)}
-						onToggle={selection.toggleSelection}
-						subtitle={formatEventTime(event)}
-						editHref={`/events/${event.id}?edit=1`}
-						onDelete={async (id) => {
-							await deleteEvents([id]).updates(listEvents());
-							toast.success('Event deleted successfully!');
-							eventsPromise = listEvents(); // Refresh the list
+	<div class="max-w-4xl mx-auto">
+		<Breadcrumb feature="events" />
+		<div class="bg-white shadow rounded-lg p-6">
+			<div class="flex justify-between items-center mb-6 gap-4">
+				<h1 class="text-3xl font-bold flex-shrink-0">
+					Calendar Events
+				</h1>
+				<div class="flex-1 flex justify-end">
+					<BulkActionToolbar
+						selectedCount={selectedIds.size}
+						totalCount={initializedItems.length}
+						onSelectAll={() => selectAll(initializedItems)}
+						onDeselectAll={deselectAll}
+						onDelete={async () => {
+							await handleDelete({
+								ids: [...selectedIds],
+								deleteFn: deleteEvents,
+								itemName: "event",
+							});
+							deselectAll();
 						}}
-						deleteLabel="Delete"
-					>
-						{#snippet title()}
-							<a 
-								href={`/events/${event.id}`} 
-								class="hover:underline text-blue-600"
-								onclick={(e) => e.stopPropagation()}
-							>
-								{event.summary}
-							</a>
-						{/snippet}
+						newItemHref="/events/new"
+						newItemLabel="+ New Event"
+					/>
+				</div>
+			</div>
 
-						{#snippet badge()}
-							{#if event.colorId}
+			{#await itemsPromise}
+				<LoadingSection message="Loading events..." />
+			{:then items}
+				{@html (() => {
+					initializedItems = items;
+					return "";
+				})()}
+
+				<div class="grid gap-4">
+					{#if items.length === 0}
+						<EmptyState
+							icon={Calendar}
+							title="No Events"
+							description="Get started by creating your first event"
+							actionLabel="Create Your First Event"
+							actionHref="/events/new"
+						/>
+					{:else}
+						{#each items as event (event.id)}
+							<div class="mb-6 last:mb-0">
 								<div
-									class="w-4 h-4 rounded-full"
-									style="background-color: hsl({parseInt(event.colorId) * 30}, 70%, 60%)"
-								></div>
-							{/if}
-						{/snippet}
-
-						{#snippet content()}
-							{#if event.location}
-								<p class="text-sm text-gray-600 mb-2">
-									📍 {event.location}
-								</p>
-							{/if}
-							
-							{#if event.description}
-								<p class="text-gray-700 mb-2 line-clamp-2">{event.description}</p>
-							{/if}
-						{/snippet}
-
-						{#snippet metadata()}
-							<div class="flex gap-2 flex-wrap">
-								<span class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
-									{event.eventType}
-								</span>
-								<span class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
-									{event.status}
-								</span>
-								{#if event.attendees && event.attendees.length > 0}
-									<span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
-										{event.attendees.length} attendee{event.attendees.length > 1 ? 's' : ''}
-									</span>
-								{/if}
-								{#if event.recurrence}
-									<span class="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded">
-										Recurring
-									</span>
-								{/if}
+									class="bg-white shadow rounded-lg p-6 flex items-start gap-4 transition-shadow"
+								>
+									<input
+										type="checkbox"
+										checked={isSelected(event.id)}
+										onchange={() =>
+											toggleSelection(event.id)}
+										class="mt-1 w-4 h-4 text-blue-600"
+									/>
+									<div class="flex-1">
+										<div
+											class="flex items-start gap-3 mb-2"
+										>
+											<div class="flex-1">
+												<h2
+													class="text-xl font-semibold"
+												>
+													<a
+														href={`/events/${event.id}`}
+														class="hover:underline text-blue-600"
+													>
+														{event.summary}
+													</a>
+												</h2>
+											</div>
+										</div>
+										<div class="flex flex-col gap-1 mt-1">
+											<span class="text-xs text-gray-500"
+												>{formatEventTime(event)}</span
+											>
+											{#if event.location}
+												<span
+													class="text-xs text-gray-400 truncate"
+													>{event.location}</span
+												>
+											{/if}
+										</div>
+									</div>
+									<div class="flex flex-col gap-2 shrink-0">
+										<Button
+											href={`/events/${event.id}`}
+											variant="default"
+											size="default"
+											class="text-center"
+										>
+											Edit
+										</Button>
+										<AsyncButton
+											variant="destructive"
+											size="default"
+											loading={false}
+											loadingLabel="Deleting..."
+											onclick={async () => {
+												const success =
+													await handleDelete({
+														ids: [event.id],
+														deleteFn: deleteEvents,
+														itemName: "event",
+													});
+												if (success) {
+													deselectAll();
+												}
+											}}
+										>
+											Delete
+										</AsyncButton>
+									</div>
+								</div>
 							</div>
-							
-							<p class="text-xs text-gray-500 mt-3">
-								Created: {new Date(event.createdAt).toLocaleString()}
-							</p>
-						{/snippet}
-					</ListCard>
-				{/each}
-			{/if}
+						{/each}
+					{/if}
+				</div>
+			{:catch error}
+				<ErrorSection
+					headline="Failed to load events"
+					message={error?.message || "An unexpected error occurred."}
+					href="/events"
+					button="Retry"
+				/>
+			{/await}
 		</div>
-	{:catch error}
-		<div class="text-center py-12">
-			<p class="text-red-600 mb-3">{error?.message || 'Failed to load events'}</p>
-			<button 
-				onclick={() => eventsPromise = listEvents()}
-				class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-			>
-				Retry
-			</button>
-		</div>
-	{/await}
+	</div>
 </div>

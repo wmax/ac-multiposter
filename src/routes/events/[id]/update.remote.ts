@@ -3,7 +3,7 @@ import { db } from '$lib/server/db';
 import { event } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { listEvents } from '../list.remote';
-import { getEvent } from './view.remote';
+import { readEvent } from './read.remote';
 import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
 import { syncService } from '$lib/server/sync/service';
 import { updateEventSchema } from '$lib/validations/event';
@@ -48,12 +48,7 @@ export const updateEvent = form(updateEventSchema, async (data) => {
 	if (data.colorId !== undefined) updateData.colorId = data.colorId;
 	if (data.recurrence !== undefined) updateData.recurrence = data.recurrence as any;
 	if (data.attendees !== undefined) updateData.attendees = data.attendees as any;
-	if (data.reminders !== undefined) {
-		// Parse reminders if it's a JSON string
-		updateData.reminders = typeof data.reminders === 'string' 
-			? JSON.parse(data.reminders) 
-			: data.reminders;
-	}
+	if (data.reminders !== undefined) updateData.reminders = data.reminders;
 	if (data.guestsCanInviteOthers !== undefined) updateData.guestsCanInviteOthers = data.guestsCanInviteOthers;
 	if (data.guestsCanModify !== undefined) updateData.guestsCanModify = data.guestsCanModify;
 	if (data.guestsCanSeeOtherGuests !== undefined) updateData.guestsCanSeeOtherGuests = data.guestsCanSeeOtherGuests;
@@ -70,7 +65,7 @@ export const updateEvent = form(updateEventSchema, async (data) => {
 	});
 
 	// Refresh both queries
-	await getEvent(data.id).refresh();
+	await readEvent(data.id).refresh();
 	await listEvents().refresh();
 
 	return { success: true };

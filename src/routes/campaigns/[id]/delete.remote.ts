@@ -25,4 +25,6 @@ export const deleteCampaigns = command(deleteCampaignIdsSchema, async (campaignI
 	
 	// Refresh the list
 	await listCampaigns().refresh();
+
+	return { success: true, count: campaignIds.length };
 });

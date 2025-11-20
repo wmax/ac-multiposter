@@ -1,16 +1,25 @@
 <script lang="ts">
-	import { create, type CreateSyncInput } from './create.remote';
-	import { list } from '../list.remote';
-	import { goto } from '$app/navigation';
-	import { Calendar, ArrowLeft, ArrowRight, ArrowLeftRight } from '@lucide/svelte';
-	import DashboardCard from '$lib/components/ui/DashboardCard.svelte';
-	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
-	import { toast } from '$lib/stores/toast.svelte';
+	import { create, type CreateSyncInput } from "./create.remote";
+	import { list } from "../list.remote";
+	import { goto } from "$app/navigation";
+	import {
+		Calendar,
+		ArrowLeft,
+		ArrowRight,
+		ArrowLeftRight,
+	} from "@lucide/svelte";
+	import DashboardCard from "$lib/components/ui/DashboardCard.svelte";
+	import Breadcrumb from "$lib/components/ui/Breadcrumb.svelte";
+	import Button from "$lib/components/ui/button/button.svelte";
+	import AsyncButton from "$lib/components/ui/AsyncButton.svelte";
+	import { toast } from "svelte-sonner";
 
-	let selectedProvider = $state<'google-calendar' | 'microsoft-calendar' | null>(null);
-	let providerId = $state('');
-	let direction = $state<'pull' | 'push' | 'bidirectional'>('bidirectional');
-	let calendarId = $state('primary');
+	let selectedProvider = $state<
+		"google-calendar" | "microsoft-calendar" | null
+	>(null);
+	let providerId = $state("");
+	let direction = $state<"pull" | "push" | "bidirectional">("bidirectional");
+	let calendarId = $state("primary");
 	let syncIntervalMinutes = $state(60);
 	let isSubmitting = $state(false);
 	let error = $state<string | null>(null);
@@ -20,69 +29,71 @@
 
 		const input: CreateSyncInput = {
 			providerType: selectedProvider,
-		providerId: providerId || `${selectedProvider}-${Date.now()}`,
-		direction,
-		settings: {
-			calendarId: calendarId || 'primary',
-			syncIntervalMinutes
-		}
-	};
+			providerId: providerId || `${selectedProvider}-${Date.now()}`,
+			direction,
+			settings: {
+				calendarId: calendarId || "primary",
+				syncIntervalMinutes,
+			},
+		};
 
-	try {
-		isSubmitting = true;
-		error = null;
-		
-		// Navigate immediately for better UX
-		const navigationPromise = goto('/synchronizations');
-		toast.success('Creating synchronization...');
-		
-		// Execute the create operation in the background
-		await create(input).updates(list());
-		await navigationPromise;
-		toast.success('Calendar synchronization created successfully!');
-	} catch (e: any) {
-		error = e.message;
-		toast.error(e.message || 'Failed to create synchronization');
-		// Don't rethrow - user already navigated away
-	} finally {
-		isSubmitting = false;
+		try {
+			isSubmitting = true;
+			error = null;
+
+			// Navigate immediately for better UX
+			const navigationPromise = goto("/synchronizations");
+			toast.success("Creating synchronization...");
+
+			// Execute the create operation in the background
+			await create(input).updates(list());
+			await navigationPromise;
+			toast.success("Calendar synchronization created successfully!");
+		} catch (e: any) {
+			error = e.message;
+			toast.error(e.message || "Failed to create synchronization");
+			// Don't rethrow - user already navigated away
+		} finally {
+			isSubmitting = false;
+		}
 	}
-}	const providers = [
+
+	const providers = [
 		{
-			id: 'google-calendar' as const,
-			name: 'Google Calendar',
-			description: 'Sync with your Google Calendar',
+			id: "google-calendar" as const,
+			name: "Google Calendar",
+			description: "Sync with your Google Calendar",
 			icon: Calendar,
-			available: true
+			available: true,
 		},
 		{
-			id: 'microsoft-calendar' as const,
-			name: 'Microsoft Calendar',
-			description: 'Sync with Outlook/Microsoft 365',
+			id: "microsoft-calendar" as const,
+			name: "Microsoft Calendar",
+			description: "Sync with Outlook/Microsoft 365",
 			icon: Calendar,
-			available: false
-		}
+			available: false,
+		},
 	];
 
 	const directions = [
 		{
-			value: 'pull' as const,
-			label: 'Pull Only',
-			description: 'Import events from external calendar to this app',
-			icon: ArrowLeft
+			value: "pull" as const,
+			label: "Pull Only",
+			description: "Import events from external calendar to this app",
+			icon: ArrowLeft,
 		},
 		{
-			value: 'push' as const,
-			label: 'Push Only',
-			description: 'Export events from this app to external calendar',
-			icon: ArrowRight
+			value: "push" as const,
+			label: "Push Only",
+			description: "Export events from this app to external calendar",
+			icon: ArrowRight,
 		},
 		{
-			value: 'bidirectional' as const,
-			label: 'Bidirectional',
-			description: 'Keep both calendars in sync',
-			icon: ArrowLeftRight
-		}
+			value: "bidirectional" as const,
+			label: "Bidirectional",
+			description: "Keep both calendars in sync",
+			icon: ArrowLeftRight,
+		},
 	];
 </script>
 
@@ -91,19 +102,24 @@
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8 max-w-4xl">
-	<Breadcrumb 
-		feature="synchronizations"
-		current="Add Calendar Sync"
-	/>
+	<Breadcrumb feature="synchronizations" current="Add Calendar Sync" />
 
 	<div class="mb-8">
 		<h1 class="text-3xl font-bold">Add Calendar Sync</h1>
-		<p class="text-gray-600 mt-2">Connect a calendar service to synchronize your events</p>
+		<p class="text-gray-600 mt-2">
+			Connect a calendar service to synchronize your events
+		</p>
 	</div>
 
-	<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-6">
+	<form
+		onsubmit={(e) => {
+			e.preventDefault();
+			handleSubmit();
+		}}
+		class="space-y-4"
+	>
 		<!-- Provider Selection -->
-		<div class="rounded-lg border border-gray-200 bg-white p-6">
+		<div class="bg-white shadow rounded-lg p-6 space-y-4">
 			<h2 class="text-xl font-semibold mb-4">Select Calendar Provider</h2>
 			<div class="grid gap-4 md:grid-cols-2">
 				{#each providers as provider}
@@ -115,27 +131,35 @@
 						provider.id
 							? 'border-blue-600 bg-blue-50'
 							: provider.available
-							? 'border-gray-200 hover:border-gray-300'
-							: 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'}"
-						onclick={() => provider.available && (selectedProvider = provider.id)}
+								? 'border-gray-200 hover:border-gray-300'
+								: 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'}"
+						onclick={() =>
+							provider.available &&
+							(selectedProvider = provider.id)}
 					>
 						<div class="flex items-start gap-3">
 							<div
-								class="rounded-lg p-2 {selectedProvider === provider.id
+								class="rounded-lg p-2 {selectedProvider ===
+								provider.id
 									? 'bg-blue-200'
 									: 'bg-gray-100'}"
 							>
 								<Icon
-									class="h-6 w-6 {selectedProvider === provider.id
+									class="h-6 w-6 {selectedProvider ===
+									provider.id
 										? 'text-blue-600'
 										: 'text-gray-600'}"
 								/>
 							</div>
 							<div class="flex-1">
 								<h3 class="font-semibold">{provider.name}</h3>
-								<p class="text-sm text-gray-600">{provider.description}</p>
+								<p class="text-sm text-gray-600">
+									{provider.description}
+								</p>
 								{#if !provider.available}
-									<p class="text-xs text-orange-600 mt-1">Coming soon</p>
+									<p class="text-xs text-orange-600 mt-1">
+										Coming soon
+									</p>
 								{/if}
 							</div>
 						</div>
@@ -146,11 +170,14 @@
 
 		{#if selectedProvider}
 			<!-- Configuration -->
-			<div class="rounded-lg border border-gray-200 bg-white p-6">
+			<div class="bg-white shadow rounded-lg p-6 space-y-4">
 				<h2 class="text-xl font-semibold mb-4">Configuration</h2>
 				<div class="space-y-4">
 					<div>
-						<label for="providerId" class="block text-sm font-medium text-gray-700 mb-1">
+						<label
+							for="providerId"
+							class="block text-sm font-medium text-gray-700 mb-1"
+						>
 							Sync Name
 						</label>
 						<input
@@ -165,9 +192,12 @@
 						</p>
 					</div>
 
-					{#if selectedProvider === 'google-calendar'}
+					{#if selectedProvider === "google-calendar"}
 						<div>
-							<label for="calendarId" class="block text-sm font-medium text-gray-700 mb-1">
+							<label
+								for="calendarId"
+								class="block text-sm font-medium text-gray-700 mb-1"
+							>
 								Calendar ID
 							</label>
 							<input
@@ -178,13 +208,17 @@
 								class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 							/>
 							<p class="text-xs text-gray-500 mt-1">
-								Use "primary" for your main calendar or specify a calendar ID
+								Use "primary" for your main calendar or specify
+								a calendar ID
 							</p>
 						</div>
 					{/if}
 
 					<div>
-						<label for="syncInterval" class="block text-sm font-medium text-gray-700 mb-1">
+						<label
+							for="syncInterval"
+							class="block text-sm font-medium text-gray-700 mb-1"
+						>
 							Sync Interval (minutes)
 						</label>
 						<input
@@ -203,12 +237,17 @@
 			</div>
 
 			<!-- Sync Direction -->
-			<div class="rounded-lg border border-gray-200 bg-white p-6">
+			<div class="bg-white shadow rounded-lg p-6 space-y-4">
 				<h2 class="text-xl font-semibold mb-4">Sync Direction</h2>
 				<div class="space-y-3">
 					{#each directions as dir}
 						{@const Icon = dir.icon}
-						<label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors {direction === dir.value ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}">
+						<label
+							class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors {direction ===
+							dir.value
+								? 'border-blue-600 bg-blue-50'
+								: 'border-gray-200 hover:border-gray-300'}"
+						>
 							<input
 								type="radio"
 								name="direction"
@@ -223,31 +262,37 @@
 							/>
 							<div class="flex-1">
 								<div class="font-medium">{dir.label}</div>
-								<div class="text-sm text-gray-600">{dir.description}</div>
+								<div class="text-sm text-gray-600">
+									{dir.description}
+								</div>
 							</div>
 						</label>
 					{/each}
 				</div>
 			</div>
 
-	<!-- Submit -->
-	<div class="flex items-center justify-between">
-		<button type="button" onclick={() => goto('/synchronizations')} class="text-gray-600 hover:text-gray-700">Cancel</button>
-		<button
-			type="submit"
-				disabled={isSubmitting}
-				class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+			<!-- Submit -->
+			<div class="flex items-center justify-end gap-3">
+				<Button
+					variant="secondary"
+					href="/synchronizations"
+					size="default"
 				>
-					{#if isSubmitting}
-						Creating...
-					{:else}
-						Create Sync
-					{/if}
-				</button>
+					Cancel
+				</Button>
+				<AsyncButton
+					type="submit"
+					loadingLabel="Creating..."
+					loading={isSubmitting}
+				>
+					Create Sync
+				</AsyncButton>
 			</div>
 
 			{#if error}
-				<div class="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+				<div
+					class="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700"
+				>
 					<strong>Error:</strong>
 					{error}
 				</div>
