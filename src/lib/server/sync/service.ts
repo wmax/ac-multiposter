@@ -347,6 +347,23 @@ export class SyncService {
 				)
 			);
 
+		if (externalEvent.status === 'cancelled') {
+			if (mapping) {
+				console.log(`[SyncService] Received cancellation for external event ${externalEvent.externalId}, deleting local event ${mapping.eventId}`);
+
+				// Delete the local event
+				// Note: This might trigger a delete hook if we had one, but we don't.
+				// However, we should be careful not to trigger a push-back loop if we add one later.
+				await db.delete(eventTable).where(eq(eventTable.id, mapping.eventId));
+
+				// Mapping should be deleted by cascade if foreign key exists, but let's be safe
+				await db.delete(syncMappingTable).where(eq(syncMappingTable.id, mapping.id));
+			} else {
+				console.log(`[SyncService] Received cancellation for unknown external event ${externalEvent.externalId}, ignoring`);
+			}
+			return;
+		}
+
 		if (mapping) {
 			// Update existing event
 			console.log(`[SyncService] Updating existing local event ${mapping.eventId} from external ${externalEvent.externalId}`);

@@ -33,6 +33,7 @@ export interface ExternalEvent {
 	externalId: string;
 	providerId: string;
 	summary: string;
+	status?: 'confirmed' | 'tentative' | 'cancelled';
 	description?: string;
 	location?: string;
 	startDate?: string;
