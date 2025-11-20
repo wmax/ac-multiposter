@@ -48,12 +48,7 @@ export const updateEvent = form(updateEventSchema, async (data) => {
 	if (data.colorId !== undefined) updateData.colorId = data.colorId;
 	if (data.recurrence !== undefined) updateData.recurrence = data.recurrence as any;
 	if (data.attendees !== undefined) updateData.attendees = data.attendees as any;
-	if (data.reminders !== undefined) {
-		// Parse reminders if it's a JSON string
-		updateData.reminders = typeof data.reminders === 'string' 
-			? JSON.parse(data.reminders) 
-			: data.reminders;
-	}
+	if (data.reminders !== undefined) updateData.reminders = data.reminders;
 	if (data.guestsCanInviteOthers !== undefined) updateData.guestsCanInviteOthers = data.guestsCanInviteOthers;
 	if (data.guestsCanModify !== undefined) updateData.guestsCanModify = data.guestsCanModify;
 	if (data.guestsCanSeeOtherGuests !== undefined) updateData.guestsCanSeeOtherGuests = data.guestsCanSeeOtherGuests;

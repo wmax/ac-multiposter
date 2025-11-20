@@ -1,40 +1,3 @@
-/**
- * Schema for creating events (no id field)
- * Mirrors updateEventSchema but omits id
- */
-export const createEventSchema = z.object({
-	summary: z.string().check(z.minLength(1, 'Event title is required')),
-	description: z.optional(z.string()),
-	location: z.optional(z.string()),
-	startDate: z.optional(z.string()),
-	startDateTime: z.optional(z.string()),
-	startTimeZone: z.optional(z.string()),
-	endDate: z.optional(z.string()),
-	endDateTime: z.optional(z.string()),
-	endTimeZone: z.optional(z.string()),
-	eventType: z.optional(z.string()),
-	status: z.optional(z.string()),
-	visibility: z.optional(z.string()),
-	transparency: z.optional(z.string()),
-	colorId: z.optional(z.string()),
-	recurrence: z.optional(z.array(z.string())),
-	attendees: z.optional(z.array(z.object({
-		email: z.string(),
-		displayName: z.optional(z.string()),
-		optional: z.optional(z.boolean()),
-		responseStatus: z.optional(z.string()),
-	}))),
-	reminders: z.optional(z.object({
-		useDefault: z.boolean(),
-		overrides: z.optional(z.array(z.object({
-			method: z.string(),
-			minutes: z.number(),
-		}))),
-	})),
-	guestsCanInviteOthers: z.optional(z.boolean()),
-	guestsCanModify: z.optional(z.boolean()),
-	guestsCanSeeOtherGuests: z.optional(z.boolean()),
-});
 import { z } from 'zod/mini';
 
 /**
@@ -67,13 +30,19 @@ export const eventBaseSchema = z.object({
 		useDefault: z.boolean(),
 		overrides: z.optional(z.array(z.object({
 			method: z.string(),
-			minutes: z.number(),
-		}))),
+			minutes: z.number()
+		})))
 	})),
 	guestsCanInviteOthers: z.optional(z.boolean()),
 	guestsCanModify: z.optional(z.boolean()),
 	guestsCanSeeOtherGuests: z.optional(z.boolean()),
 });
+
+/**
+ * Schema for creating events (no id field)
+ * Mirrors updateEventSchema but omits id
+ */
+export const createEventSchema = eventBaseSchema;
 
 /**
  * Schema for event creation
@@ -112,8 +81,8 @@ export const updateEventSchema = z.object({
 		useDefault: z.boolean(),
 		overrides: z.optional(z.array(z.object({
 			method: z.string(),
-			minutes: z.number(),
-		}))),
+			minutes: z.number()
+		})))
 	})),
 	guestsCanInviteOthers: z.optional(z.boolean()),
 	guestsCanModify: z.optional(z.boolean()),

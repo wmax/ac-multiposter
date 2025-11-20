@@ -34,10 +34,7 @@ export const createEvent = form(eventSchema, async (data) => {
 		const startDateTime = data.startDateTime ? new Date(data.startDateTime) : null;
 		const endDateTime = data.endDateTime ? new Date(data.endDateTime) : null;
 
-		// Parse reminders if it's a JSON string
-		const reminders = typeof data.reminders === 'string' 
-			? JSON.parse(data.reminders) 
-			: data.reminders;
+		const reminders = data.reminders;
 
 		// Insert the event
 		const result = await db.insert(event).values({
@@ -68,7 +65,7 @@ export const createEvent = form(eventSchema, async (data) => {
 			locked: false,
 			privateCopy: false,
 			sequence: 0,
-		});
+		}).returning();
 
 		// Optionally check insert result
 		const row = result[0];
@@ -86,8 +83,6 @@ export const createEvent = form(eventSchema, async (data) => {
 
 		return { success: true };
 	} catch (error: any) {
-		// Log error to server console for debugging
-		console.error('[createEvent] Error:', error);
 		if (error?.status && error?.location) {
 			throw error;
 		}

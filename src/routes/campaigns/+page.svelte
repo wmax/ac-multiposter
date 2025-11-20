@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { listCampaigns } from './list.remote';
-	import { deleteCampaigns } from './[id]/delete.remote';
-	import type { Campaign } from './list.remote';
-	import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
-	import Button from '$lib/components/ui/button/button.svelte';
-	import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
-	import { Megaphone } from '@lucide/svelte';
-	import LoadingSection from '$lib/components/ui/LoadingSection.svelte';
-	import ErrorSection from '$lib/components/ui/ErrorSection.svelte';
-    import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
-	import { handleDelete } from '$lib/hooks/handleDelete.svelte';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import { listCampaigns } from "./list.remote";
+	import { deleteCampaigns } from "./[id]/delete.remote";
+	import type { Campaign } from "./list.remote";
+	import Breadcrumb from "$lib/components/ui/Breadcrumb.svelte";
+	import Button from "$lib/components/ui/button/button.svelte";
+	import AsyncButton from "$lib/components/ui/AsyncButton.svelte";
+	import { Megaphone } from "@lucide/svelte";
+	import LoadingSection from "$lib/components/ui/LoadingSection.svelte";
+	import ErrorSection from "$lib/components/ui/ErrorSection.svelte";
+	import BulkActionToolbar from "$lib/components/ui/BulkActionToolbar.svelte";
+	import { handleDelete } from "$lib/hooks/handleDelete.svelte";
+	import EmptyState from "$lib/components/ui/EmptyState.svelte";
 
 	let itemsPromise = $state<Promise<Campaign[]>>(listCampaigns());
 	let initializedItems = $state<Campaign[]>([]);
@@ -34,9 +34,6 @@
 	function deselectAll() {
 		selectedIds = new Set();
 	}
-
-
-
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -55,7 +52,7 @@
 							await handleDelete({
 								ids: [...selectedIds],
 								deleteFn: deleteCampaigns,
-								itemName: 'campaign'
+								itemName: "campaign",
 							});
 							deselectAll();
 						}}
@@ -68,7 +65,10 @@
 			{#await itemsPromise}
 				<LoadingSection message="Loading campaigns..." />
 			{:then items}
-				{@html (() => { initializedItems = items; return '' })()}
+				{@html (() => {
+					initializedItems = items;
+					return "";
+				})()}
 
 				<div class="grid gap-4">
 					{#if items.length === 0}
@@ -88,18 +88,24 @@
 									<input
 										type="checkbox"
 										checked={isSelected(campaign.id)}
-										onchange={() => toggleSelection(campaign.id)}
+										onchange={() =>
+											toggleSelection(campaign.id)}
 										onclick={(e) => e.stopPropagation()}
 										class="mt-1 w-4 h-4 text-blue-600"
 									/>
 									<div class="flex-1">
-										<div class="flex items-start gap-3 mb-2">
+										<div
+											class="flex items-start gap-3 mb-2"
+										>
 											<div class="flex-1">
-												<h2 class="text-xl font-semibold">
-													<a 
-														href={`/campaigns/${campaign.id}`} 
+												<h2
+													class="text-xl font-semibold"
+												>
+													<a
+														href={`/campaigns/${campaign.id}`}
 														class="hover:underline text-blue-600"
-														onclick={(e) => e.stopPropagation()}
+														onclick={(e) =>
+															e.stopPropagation()}
 													>
 														{campaign.name}
 													</a>
@@ -107,15 +113,20 @@
 											</div>
 										</div>
 										<div class="mt-2">
-											<pre class="bg-gray-50 p-4 rounded text-sm overflow-auto">{JSON.stringify(
-												campaign.content,
-												null,
-												2
-											)}</pre>
+											<pre
+												class="bg-gray-50 p-4 rounded text-sm overflow-auto">{JSON.stringify(
+													campaign.content,
+													null,
+													2,
+												)}</pre>
 										</div>
 										<div class="mt-3">
-											<p class="text-xs text-gray-500 mt-3">
-												Created: {new Date(campaign.createdAt).toLocaleString()}
+											<p
+												class="text-xs text-gray-500 mt-3"
+											>
+												Created: {new Date(
+													campaign.createdAt,
+												).toLocaleString()}
 											</p>
 										</div>
 									</div>
@@ -133,16 +144,18 @@
 											size="default"
 											loading={false}
 											loadingLabel="Deleting..."
-											onclick={
-												async () => { 
+											onclick={async () => {
+												const success =
 													await handleDelete({
-																		ids: [campaign.id],
-																		deleteFn: deleteCampaigns,
-																		itemName: 'campaign' }
-																	); 
-													toggleSelection(campaign.id);
+														ids: [campaign.id],
+														deleteFn:
+															deleteCampaigns,
+														itemName: "campaign",
+													});
+												if (success) {
+													deselectAll();
 												}
-											}
+											}}
 										>
 											Delete
 										</AsyncButton>
@@ -155,7 +168,7 @@
 			{:catch error}
 				<ErrorSection
 					headline="Failed to load campaigns"
-					message={error?.message || 'An unexpected error occurred.'}
+					message={error?.message || "An unexpected error occurred."}
 					href="/campaigns"
 					button="Retry"
 				/>

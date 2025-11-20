@@ -1,8 +1,6 @@
 import { query } from '$app/server';
-import { db } from '$lib/server/db';
 import { event } from '$lib/server/db/schema';
-import { eq, desc } from 'drizzle-orm';
-import { getAuthenticatedUser, ensureAccess } from '$lib/authorization';
+import { listQuery } from '$lib/server/db/query-helpers';
 
 /**
  * Event interface matching the database schema
@@ -93,26 +91,28 @@ export interface Event {
 	source: {
 		url?: string;
 		title?: string;
+		name?: string;
 	} | null;
 	locked: boolean | null;
 	privateCopy: boolean | null;
 	sequence: number | null;
-	createdAt: Date;
-	updatedAt: Date;
+	createdAt: string;
+	updatedAt: string;
 }
 
 /**
  * List all events for the authenticated user
  */
-export const listEvents = query(async () => {
-	const user = getAuthenticatedUser();
-	ensureAccess(user, 'events');
+export const listEvents = query(async (): Promise<Event[]> => {
+	const results = await listQuery({
+		table: event,
+		featureName: 'events',
+		transform: (row) => ({
+			...row,
+			createdAt: row.createdAt.toISOString(),
+			updatedAt: row.updatedAt.toISOString(),
+		}),
+	});
 
-	const events = await db
-		.select()
-		.from(event)
-		.where(eq(event.userId, user.id))
-		.orderBy(desc(event.createdAt));
-
-	return events as Event[];
+	return results;
 });

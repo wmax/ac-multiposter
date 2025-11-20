@@ -1,56 +1,62 @@
 <script lang="ts">
-import { listEvents } from './list.remote';
-import type { Event } from './list.remote';
-import { deleteEvents } from './delete.remote';
-import Breadcrumb from '$lib/components/ui/Breadcrumb.svelte';
-import Button from '$lib/components/ui/button/button.svelte';
-import AsyncButton from '$lib/components/ui/AsyncButton.svelte';
-import { Calendar } from '@lucide/svelte';
-import LoadingSection from '$lib/components/ui/LoadingSection.svelte';
-import ErrorSection from '$lib/components/ui/ErrorSection.svelte';
-import BulkActionToolbar from '$lib/components/ui/BulkActionToolbar.svelte';
-import { handleDelete } from '$lib/hooks/handleDelete.svelte';
-import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import { listEvents } from "./list.remote";
+	import type { Event } from "./list.remote";
+	import { deleteEvents } from "./delete.remote";
+	import Breadcrumb from "$lib/components/ui/Breadcrumb.svelte";
+	import Button from "$lib/components/ui/button/button.svelte";
+	import AsyncButton from "$lib/components/ui/AsyncButton.svelte";
+	import { Calendar } from "@lucide/svelte";
+	import LoadingSection from "$lib/components/ui/LoadingSection.svelte";
+	import ErrorSection from "$lib/components/ui/ErrorSection.svelte";
+	import BulkActionToolbar from "$lib/components/ui/BulkActionToolbar.svelte";
+	import { handleDelete } from "$lib/hooks/handleDelete.svelte";
+	import EmptyState from "$lib/components/ui/EmptyState.svelte";
 
-let itemsPromise = $state<Promise<Event[]>>(listEvents());
-let initializedItems = $state<Event[]>([]);
-let selectedIds = $state<Set<string>>(new Set());
+	let itemsPromise = $state<Promise<Event[]>>(listEvents());
+	let initializedItems = $state<Event[]>([]);
+	let selectedIds = $state<Set<string>>(new Set());
 
-function isSelected(id: string) {
-	return selectedIds.has(id);
-}
-function toggleSelection(id: string) {
-	if (selectedIds.has(id)) {
-		selectedIds.delete(id);
-	} else {
-		selectedIds.add(id);
+	function isSelected(id: string) {
+		return selectedIds.has(id);
 	}
-	selectedIds = new Set(selectedIds);
-}
-function selectAll(items: Event[]) {
-	selectedIds = new Set(items.map((item) => item.id));
-}
-function deselectAll() {
-	selectedIds = new Set();
-}
-
-function formatEventTime(event: Event): string {
-	if (event.startDate) {
-		return `All day on ${event.startDate}`;
-	}
-	if (event.startDateTime) {
-		const start = new Date(event.startDateTime);
-		const end = event.endDateTime ? new Date(event.endDateTime) : null;
-		const dateStr = start.toLocaleDateString();
-		const startTime = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-		if (end) {
-			const endTime = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-			return `${dateStr}, ${startTime} - ${endTime}`;
+	function toggleSelection(id: string) {
+		if (selectedIds.has(id)) {
+			selectedIds.delete(id);
+		} else {
+			selectedIds.add(id);
 		}
-		return `${dateStr}, ${startTime}`;
+		selectedIds = new Set(selectedIds);
 	}
-	return 'Time not specified';
-}
+	function selectAll(items: Event[]) {
+		selectedIds = new Set(items.map((item) => item.id));
+	}
+	function deselectAll() {
+		selectedIds = new Set();
+	}
+
+	function formatEventTime(event: Event): string {
+		if (event.startDate) {
+			return `All day on ${event.startDate}`;
+		}
+		if (event.startDateTime) {
+			const start = new Date(event.startDateTime);
+			const end = event.endDateTime ? new Date(event.endDateTime) : null;
+			const dateStr = start.toLocaleDateString();
+			const startTime = start.toLocaleTimeString([], {
+				hour: "2-digit",
+				minute: "2-digit",
+			});
+			if (end) {
+				const endTime = end.toLocaleTimeString([], {
+					hour: "2-digit",
+					minute: "2-digit",
+				});
+				return `${dateStr}, ${startTime} - ${endTime}`;
+			}
+			return `${dateStr}, ${startTime}`;
+		}
+		return "Time not specified";
+	}
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -58,7 +64,9 @@ function formatEventTime(event: Event): string {
 		<Breadcrumb feature="events" />
 		<div class="bg-white shadow rounded-lg p-6">
 			<div class="flex justify-between items-center mb-6 gap-4">
-				<h1 class="text-3xl font-bold flex-shrink-0">Calendar Events</h1>
+				<h1 class="text-3xl font-bold flex-shrink-0">
+					Calendar Events
+				</h1>
 				<div class="flex-1 flex justify-end">
 					<BulkActionToolbar
 						selectedCount={selectedIds.size}
@@ -69,7 +77,7 @@ function formatEventTime(event: Event): string {
 							await handleDelete({
 								ids: [...selectedIds],
 								deleteFn: deleteEvents,
-								itemName: 'event'
+								itemName: "event",
 							});
 							deselectAll();
 						}}
@@ -82,7 +90,10 @@ function formatEventTime(event: Event): string {
 			{#await itemsPromise}
 				<LoadingSection message="Loading events..." />
 			{:then items}
-				{@html (() => { initializedItems = items; return '' })()}
+				{@html (() => {
+					initializedItems = items;
+					return "";
+				})()}
 
 				<div class="grid gap-4">
 					{#if items.length === 0}
@@ -102,55 +113,67 @@ function formatEventTime(event: Event): string {
 									<input
 										type="checkbox"
 										checked={isSelected(event.id)}
-										onchange={() => toggleSelection(event.id)}
+										onchange={() =>
+											toggleSelection(event.id)}
 										onclick={(e) => e.stopPropagation()}
 										class="mt-1 w-4 h-4 text-blue-600"
 									/>
 									<div class="flex-1">
-										<div class="flex items-start gap-3 mb-2">
+										<div
+											class="flex items-start gap-3 mb-2"
+										>
 											<div class="flex-1">
-												<h2 class="text-xl font-semibold">
-													<a 
-														href={`/events/${event.id}`} 
+												<h2
+													class="text-xl font-semibold"
+												>
+													<a
+														href={`/events/${event.id}`}
 														class="hover:underline text-blue-600"
-														onclick={(e) => e.stopPropagation()}
+														onclick={(e) =>
+															e.stopPropagation()}
 													>
 														{event.summary}
 													</a>
 												</h2>
 											</div>
 										</div>
-										   <div class="flex flex-col gap-1 mt-1">
-											   <span class="text-xs text-gray-500">{formatEventTime(event)}</span>
-											   {#if event.location}
-												   <span class="text-xs text-gray-400 truncate">{event.location}</span>
-											   {/if}
-										   </div>
+										<div class="flex flex-col gap-1 mt-1">
+											<span class="text-xs text-gray-500"
+												>{formatEventTime(event)}</span
+											>
+											{#if event.location}
+												<span
+													class="text-xs text-gray-400 truncate"
+													>{event.location}</span
+												>
+											{/if}
+										</div>
 									</div>
 									<div class="flex flex-col gap-2 shrink-0">
-											<Button
-												href={`/events/${event.id}`}
-												variant="default"
-												size="default"
-												class="text-center"
-											>
-												Edit
-											</Button>
+										<Button
+											href={`/events/${event.id}`}
+											variant="default"
+											size="default"
+											class="text-center"
+										>
+											Edit
+										</Button>
 										<AsyncButton
 											variant="destructive"
 											size="default"
 											loading={false}
 											loadingLabel="Deleting..."
-											onclick={
-												async () => {
+											onclick={async () => {
+												const success =
 													await handleDelete({
 														ids: [event.id],
 														deleteFn: deleteEvents,
-														itemName: 'event'
+														itemName: "event",
 													});
-													toggleSelection(event.id);
+												if (success) {
+													deselectAll();
 												}
-											}
+											}}
 										>
 											Delete
 										</AsyncButton>
@@ -163,7 +186,7 @@ function formatEventTime(event: Event): string {
 			{:catch error}
 				<ErrorSection
 					headline="Failed to load events"
-					message={error?.message || 'An unexpected error occurred.'}
+					message={error?.message || "An unexpected error occurred."}
 					href="/events"
 					button="Retry"
 				/>

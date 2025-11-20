@@ -21,10 +21,6 @@ export const readCampaign = query(z.string(), async (campaignId: string): Promis
 			updatedAt: row.updatedAt.toISOString(),
 		}),
 	});
-/* 
-	updateCampaign.fields.id.set(result?.id || '');
-	updateCampaign.fields.name.set(result?.name || '');
-	updateCampaign.fields.content.set(result ? JSON.stringify(result.content, null, 2) : '');
- */
+
 	return result;
 });
