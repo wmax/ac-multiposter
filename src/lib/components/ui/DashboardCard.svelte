@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ICONS } from '$lib/icons';
+  import { goto } from '$app/navigation';
   const props = $props<{
     title?: string;
     description?: string;
@@ -46,9 +47,13 @@
         </div>
         {#if props.href && props.buttonText}
           <div>
-            <a href={props.href} class={`inline-block px-4 py-2 text-white rounded-md transition-colors text-sm font-medium ${buttonClass}`}>
+            <button
+              type="button"
+              class={`inline-block px-4 py-2 text-white rounded-md transition-colors text-sm font-medium ${buttonClass}`}
+              onclick={() => goto(props.href)}
+            >
               {props.buttonText}
-            </a>
+            </button>
           </div>
         {/if}
       </div>
