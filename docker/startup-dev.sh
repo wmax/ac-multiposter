@@ -6,4 +6,4 @@ if [ ! -f ".env.local" ]; then
     cp docker/docker-env .env.local
 fi
 
-npm run dev
+npm run docker-dev
